@@ -527,7 +527,7 @@
 	RepairableBuilding:
 		PlayerExperience: 25
 	EngineerRepairable:
-	AcceptsSupplies:
+	AcceptsDeliveredCash:
 	WithMakeAnimation:
 	ExternalCapturable:
 	ExternalCapturableBar:
@@ -553,7 +553,7 @@
 		RequiredForShortGame: false
 	AutoTarget:
 	-GivesBuildableArea:
-	-AcceptsSupplies:
+	-AcceptsDeliveredCash:
 	DrawLineToTarget:
 	RenderRangeCircle:
 	Explodes:
@@ -786,7 +786,8 @@
 		CaptureThreshold: 100
 	TransformOnCapture:
 		ForceHealthPercentage: 25
-	DisabledOverlay:
+	WithColoredOverlay@IDISABLE:
+		Palette: disabled
 	Targetable:
 		TargetTypes: Ground, Husk
 		RequiresForceFire: true
@@ -907,6 +908,7 @@
 		CrushClasses: mine
 		DetonateClasses: mine
 		AvoidFriendly: false
+		BlockFriendly: false
 	Health:
 		HP: 100
 		NotifyAppliedDamage: false
@@ -924,3 +926,19 @@
 		TargetTypes: Ground
 	Immobile:
 		OccupiesSpace: true
+
+^DisabledOverlay:
+	WithColoredOverlay@IDISABLE:
+		RequiresCondition: disabled
+		Palette: disabled
+	GrantConditionOnDisabled@IDISABLE:
+		Condition: disabled
+
+^DisabledByPowerOutage:
+	AffectedByPowerOutage:
+		Condition: power-outage
+	InfiltrateForPowerOutage:
+	DisableOnCondition@POWER_OUTAGE:
+		RequiresCondition: power-outage
+	Power:
+		RequiresCondition: !power-outage

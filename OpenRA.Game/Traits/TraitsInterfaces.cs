@@ -95,6 +95,8 @@ namespace OpenRA.Traits
 	public interface ITick { void Tick(Actor self); }
 	public interface ITickRender { void TickRender(WorldRenderer wr, Actor self); }
 	public interface IRender { IEnumerable<IRenderable> Render(Actor self, WorldRenderer wr); }
+
+	public interface IAutoSelectionSizeInfo : ITraitInfoInterface { }
 	public interface IAutoSelectionSize { int2 SelectionSize(Actor self); }
 
 	public interface IIssueOrder
@@ -285,7 +287,7 @@ namespace OpenRA.Traits
 	public interface IMove
 	{
 		Activity MoveTo(CPos cell, int nearEnough);
-		Activity MoveTo(CPos cell, Actor ignoredActor);
+		Activity MoveTo(CPos cell, Actor ignoreActor);
 		Activity MoveWithinRange(Target target, WDist range);
 		Activity MoveWithinRange(Target target, WDist minRange, WDist maxRange);
 		Activity MoveFollow(Actor self, Target target, WDist minRange, WDist maxRange);

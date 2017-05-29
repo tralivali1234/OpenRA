@@ -10,10 +10,8 @@
 #endregion
 
 using System.Collections.Generic;
-using OpenRA.Activities;
 using OpenRA.Mods.Common.Activities;
 using OpenRA.Mods.Common.Orders;
-using OpenRA.Mods.Common.Traits.Render;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
@@ -73,7 +71,7 @@ namespace OpenRA.Mods.Common.Traits
 			return (order.OrderString == "DeployTransform") ? info.Voice : null;
 		}
 
-		bool CanDeploy()
+		public bool CanDeploy()
 		{
 			var building = self.TraitOrDefault<Building>();
 			if (building != null && building.Locked)
@@ -113,37 +111,14 @@ namespace OpenRA.Mods.Common.Traits
 			if (!queued)
 				self.CancelActivity();
 
-			if (self.Info.HasTraitInfo<IFacingInfo>())
-				self.QueueActivity(new Turn(self, info.Facing));
-
-			if (self.Info.HasTraitInfo<AircraftInfo>())
-				self.QueueActivity(new HeliLand(self, true));
-
-			self.QueueActivity(new CallFunc(() =>
+			self.QueueActivity(new Transform(self, info.IntoActor)
 			{
-				// Prevent deployment in bogus locations
-				var building = self.TraitOrDefault<Building>();
-				if (!CanDeploy() || (building != null && !building.Lock()))
-					return;
-
-				foreach (var nt in self.TraitsImplementing<INotifyTransform>())
-					nt.BeforeTransform(self);
-
-				var transform = new Transform(self, info.IntoActor)
-				{
-					Offset = info.Offset,
-					Facing = info.Facing,
-					Sounds = info.TransformSounds,
-					Notification = info.TransformNotification,
-					Faction = faction
-				};
-
-				var makeAnimation = self.TraitOrDefault<WithMakeAnimation>();
-				if (makeAnimation != null)
-					makeAnimation.Reverse(self, transform);
-				else
-					self.QueueActivity(transform);
-			}));
+				Offset = info.Offset,
+				Facing = info.Facing,
+				Sounds = info.TransformSounds,
+				Notification = info.TransformNotification,
+				Faction = faction
+			});
 		}
 
 		public void ResolveOrder(Actor self, Order order)

@@ -247,6 +247,9 @@ namespace OpenRA.Mods.Common.Traits
 					if (args.Weapon.Report != null && args.Weapon.Report.Any())
 						Game.Sound.Play(SoundType.World, args.Weapon.Report.Random(self.World.SharedRandom), self.CenterPosition);
 
+					if (Burst == args.Weapon.Burst && args.Weapon.StartBurstReport != null && args.Weapon.StartBurstReport.Any())
+						Game.Sound.Play(SoundType.World, args.Weapon.StartBurstReport.Random(self.World.SharedRandom), self.CenterPosition);
+
 					foreach (var na in self.TraitsImplementing<INotifyAttack>())
 						na.Attacking(self, target, this, barrel);
 
@@ -262,6 +265,14 @@ namespace OpenRA.Mods.Common.Traits
 					.Select(m => m.GetReloadModifier());
 				FireDelay = Util.ApplyPercentageModifiers(Weapon.ReloadDelay, modifiers);
 				Burst = Weapon.Burst;
+
+				if (args.Weapon.AfterFireSound != null && args.Weapon.AfterFireSound.Any())
+				{
+					ScheduleDelayedAction(Weapon.AfterFireSoundDelay, () =>
+					{
+						Game.Sound.Play(SoundType.World, Weapon.AfterFireSound.Random(self.World.SharedRandom), self.CenterPosition);
+					});
+				}
 
 				foreach (var nbc in self.TraitsImplementing<INotifyBurstComplete>())
 					nbc.FiredBurst(self, target, this);

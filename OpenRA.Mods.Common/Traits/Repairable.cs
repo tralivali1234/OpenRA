@@ -105,7 +105,7 @@ namespace OpenRA.Mods.Common.Traits
 
 		void AfterReachActivities(Actor self, Order order, IMove movement)
 		{
-			if (!order.TargetActor.IsInWorld || order.TargetActor.IsDead || order.TargetActor.IsDisabled())
+			if (!order.TargetActor.IsInWorld || order.TargetActor.IsDead || order.TargetActor.TraitsImplementing<RepairsUnits>().All(r => r.IsTraitDisabled))
 				return;
 
 			// TODO: This is hacky, but almost every single component affected
@@ -114,7 +114,8 @@ namespace OpenRA.Mods.Common.Traits
 			if (CanRearmAt(order.TargetActor) && CanRearm())
 				self.QueueActivity(new Rearm(self));
 
-			self.QueueActivity(new Repair(self, order.TargetActor));
+			// Add a CloseEnough range of 512 to ensure we're at the host actor
+			self.QueueActivity(new Repair(self, order.TargetActor, new WDist(512)));
 
 			var rp = order.TargetActor.TraitOrDefault<RallyPoint>();
 			if (rp != null)

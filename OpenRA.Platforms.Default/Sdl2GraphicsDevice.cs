@@ -40,7 +40,7 @@ namespace OpenRA.Platforms.Default
 			WindowSize = windowSize;
 
 			// Disable legacy scaling on Windows
-			if (Platform.CurrentPlatform == PlatformType.Windows)
+			if (Platform.CurrentPlatform == PlatformType.Windows && !Game.Settings.Graphics.DisableWindowsDPIScaling)
 				SetProcessDPIAware();
 
 			SDL.SDL_Init(SDL.SDL_INIT_NOPARACHUTE | SDL.SDL_INIT_VIDEO);
@@ -63,6 +63,11 @@ namespace OpenRA.Platforms.Default
 			Console.WriteLine("Using resolution: {0}x{1}", WindowSize.Width, WindowSize.Height);
 
 			var windowFlags = SDL.SDL_WindowFlags.SDL_WINDOW_OPENGL | SDL.SDL_WindowFlags.SDL_WINDOW_ALLOW_HIGHDPI;
+
+			// HiDPI doesn't work properly on OSX with (legacy) fullscreen mode
+			if (Platform.CurrentPlatform == PlatformType.OSX && windowMode == WindowMode.Fullscreen)
+				SDL.SDL_SetHint(SDL.SDL_HINT_VIDEO_HIGHDPI_DISABLED, "1");
+
 			window = SDL.SDL_CreateWindow("OpenRA", SDL.SDL_WINDOWPOS_CENTERED, SDL.SDL_WINDOWPOS_CENTERED,
 				WindowSize.Width, WindowSize.Height, windowFlags);
 
@@ -82,7 +87,7 @@ namespace OpenRA.Platforms.Default
 			else if (Platform.CurrentPlatform == PlatformType.Windows)
 			{
 				float ddpi, hdpi, vdpi;
-				if (SDL.SDL_GetDisplayDPI(0, out ddpi, out hdpi, out vdpi) == 0)
+				if (!Game.Settings.Graphics.DisableWindowsDPIScaling && SDL.SDL_GetDisplayDPI(0, out ddpi, out hdpi, out vdpi) == 0)
 				{
 					WindowScale = ddpi / 96;
 					WindowSize = new Size((int)(SurfaceSize.Width / WindowScale), (int)(SurfaceSize.Height / WindowScale));
@@ -107,7 +112,23 @@ namespace OpenRA.Platforms.Default
 				ReleaseWindowMouseFocus();
 
 			if (windowMode == WindowMode.Fullscreen)
+			{
 				SDL.SDL_SetWindowFullscreen(window, (uint)SDL.SDL_WindowFlags.SDL_WINDOW_FULLSCREEN);
+
+				// Fullscreen mode on OSX will ignore the configured display resolution
+				// and instead always picks an arbitrary scaled resolution choice that may
+				// not match the window size, leading to graphical and input issues.
+				// We work around this by force disabling HiDPI and resetting the window and
+				// surface sizes to match the size that is forced by SDL.
+				// This is usually not what the player wants, but is the best we can consistently do.
+				if (Platform.CurrentPlatform == PlatformType.OSX)
+				{
+					int width, height;
+					SDL.SDL_GetWindowSize(window, out width, out height);
+					WindowSize = SurfaceSize = new Size(width, height);
+					WindowScale = 1;
+				}
+			}
 			else if (windowMode == WindowMode.PseudoFullscreen)
 			{
 				// Work around a visual glitch in OSX: the window is offset

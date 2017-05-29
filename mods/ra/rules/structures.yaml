@@ -1,5 +1,6 @@
 MSLO:
 	Inherits: ^ScienceBuilding
+	Inherits@IDISABLE: ^DisabledOverlay
 	Valued:
 		Cost: 2500
 	Tooltip:
@@ -20,6 +21,7 @@ MSLO:
 	RevealsShroud:
 		Range: 5c0
 	NukePower:
+		PauseOnCondition: disabled
 		Cursor: nuke
 		Icon: abomb
 		ChargeTime: 540
@@ -45,7 +47,6 @@ MSLO:
 		PowerupSound: EnablePower
 		PowerdownSound: DisablePower
 	RequiresPower:
-	DisabledOverlay:
 	SupportPowerChargeBar:
 	Power:
 		Amount: -150
@@ -54,6 +55,7 @@ MSLO:
 
 GAP:
 	Inherits: ^ScienceBuilding
+	Inherits@IDISABLE: ^DisabledOverlay
 	Valued:
 		Cost: 800
 	Tooltip:
@@ -71,7 +73,6 @@ GAP:
 	CanPowerDown:
 		PowerupSound: EnablePower
 		PowerdownSound: DisablePower
-	DisabledOverlay:
 	WithSpriteBody:
 		PauseAnimationWhenDisabled: true
 	Health:
@@ -284,6 +285,7 @@ SYRD:
 
 IRON:
 	Inherits: ^ScienceBuilding
+	Inherits@IDISABLE: ^DisabledOverlay
 	Buildable:
 		Queue: Defense
 		BuildPaletteOrder: 130
@@ -301,7 +303,6 @@ IRON:
 	CanPowerDown:
 		PowerupSound: EnablePower
 		PowerdownSound: DisablePower
-	DisabledOverlay:
 	Selectable:
 		Bounds: 48,28,0,2
 	SelectionDecorations:
@@ -318,6 +319,7 @@ IRON:
 	Bib:
 		HasMinibib: Yes
 	GrantExternalConditionPower@IRONCURTAIN:
+		PauseOnCondition: disabled
 		Icon: invuln
 		ChargeTime: 120
 		Description: Invulnerability
@@ -338,6 +340,7 @@ IRON:
 
 PDOX:
 	Inherits: ^ScienceBuilding
+	Inherits@IDISABLE: ^DisabledOverlay
 	Buildable:
 		Queue: Defense
 		BuildPaletteOrder: 120
@@ -355,7 +358,6 @@ PDOX:
 	CanPowerDown:
 		PowerupSound: EnablePower
 		PowerdownSound: DisablePower
-	DisabledOverlay:
 	Health:
 		HP: 1000
 	Armor:
@@ -375,6 +377,7 @@ PDOX:
 		Prerequisite: pdox.germany
 	ChronoshiftPower@chronoshift:
 		OrderName: Chronoshift
+		PauseOnCondition: disabled
 		Prerequisites: !pdox.germany
 		Icon: chrono
 		ChargeTime: 120
@@ -389,6 +392,7 @@ PDOX:
 		DisplayRadarPing: True
 	ChronoshiftPower@advancedchronoshift:
 		OrderName: AdvancedChronoshift
+		PauseOnCondition: disabled
 		Prerequisites: pdox.germany
 		Icon: chrono
 		ChargeTime: 120
@@ -403,7 +407,7 @@ PDOX:
 		DisplayRadarPing: True
 		Range: 2
 	SupportPowerChargeBar:
-	-AcceptsSupplies:
+	-AcceptsDeliveredCash:
 	Power:
 		Amount: -200
 	MustBeDestroyed:
@@ -412,6 +416,7 @@ PDOX:
 
 TSLA:
 	Inherits: ^Defense
+	Inherits@IDISABLE: ^DisabledOverlay
 	Buildable:
 		Queue: Defense
 		BuildPaletteOrder: 80
@@ -429,7 +434,6 @@ TSLA:
 	CanPowerDown:
 		PowerupSound: EnablePower
 		PowerdownSound: DisablePower
-	DisabledOverlay:
 	Health:
 		HP: 400
 	Armor:
@@ -457,6 +461,7 @@ TSLA:
 
 AGUN:
 	Inherits: ^Defense
+	Inherits@IDISABLE: ^DisabledOverlay
 	Buildable:
 		Queue: Defense
 		BuildPaletteOrder: 90
@@ -474,7 +479,6 @@ AGUN:
 	CanPowerDown:
 		PowerupSound: EnablePower
 		PowerdownSound: DisablePower
-	DisabledOverlay:
 	Health:
 		HP: 400
 	Armor:
@@ -508,6 +512,7 @@ AGUN:
 
 DOME:
 	Inherits: ^Building
+	Inherits@IDISABLE: ^DisabledOverlay
 	Buildable:
 		Queue: Building
 		BuildPaletteOrder: 90
@@ -526,7 +531,6 @@ DOME:
 	CanPowerDown:
 		PowerupSound: EnablePower
 		PowerdownSound: DisablePower
-	DisabledOverlay:
 	Health:
 		HP: 1000
 	Armor:
@@ -626,6 +630,10 @@ HBOX:
 		InitialDelay: 125
 		CloakDelay: 60
 		IsPlayerPalette: true
+		RequiresCondition: !cloak-force-disabled
+	GrantConditionOnDamageState@UNCLOAK:
+		Condition: cloak-force-disabled
+		ValidDamageStates: Critical
 	Turreted:
 		TurnSpeed: 255
 	-QuantizeFacingsFromSequence:
@@ -735,6 +743,7 @@ FTUR:
 
 SAM:
 	Inherits: ^Defense
+	Inherits@IDISABLE: ^DisabledOverlay
 	Buildable:
 		Queue: Defense
 		BuildPaletteOrder: 100
@@ -751,7 +760,6 @@ SAM:
 	CanPowerDown:
 		PowerupSound: EnablePower
 		PowerdownSound: DisablePower
-	DisabledOverlay:
 	Health:
 		HP: 400
 	Armor:
@@ -781,6 +789,7 @@ SAM:
 
 ATEK:
 	Inherits: ^ScienceBuilding
+	Inherits@IDISABLE: ^DisabledOverlay
 	Buildable:
 		Queue: Building
 		BuildPaletteOrder: 140
@@ -806,6 +815,7 @@ ATEK:
 		Range: 6c0
 	Bib:
 	GpsPower:
+		PauseOnCondition: disabled
 		Icon: gps
 		OneShot: yes
 		ChargeTime: 480
@@ -816,7 +826,6 @@ ATEK:
 		DisplayTimerStances: Ally, Neutral, Enemy
 	SupportPowerChargeBar:
 	RequiresPower:
-	DisabledOverlay:
 	Power:
 		Amount: -200
 	ProvidesPrerequisite@buildingname:
@@ -1299,6 +1308,8 @@ AFLD:
 
 POWR:
 	Inherits: ^Building
+	Inherits@IDISABLE: ^DisabledOverlay
+	Inherits@POWER_OUTAGE: ^DisabledByPowerOutage
 	Buildable:
 		Queue: Building
 		BuildPaletteOrder: 10
@@ -1322,18 +1333,17 @@ POWR:
 	Bib:
 	Power:
 		Amount: 100
-	InfiltrateForPowerOutage:
-	AffectedByPowerOutage:
 	Targetable:
 		TargetTypes: Ground, Structure, C4, DetonateAttack, SpyInfiltrate
 	ScalePowerWithHealth:
-	DisabledOverlay:
 	WithDeathAnimation:
 		DeathSequence: dead
 		UseDeathTypeSuffix: false
 
 APWR:
 	Inherits: ^Building
+	Inherits@IDISABLE: ^DisabledOverlay
+	Inherits@POWER_OUTAGE: ^DisabledByPowerOutage
 	Buildable:
 		Queue: Building
 		BuildPaletteOrder: 110
@@ -1361,12 +1371,9 @@ APWR:
 	Bib:
 	Power:
 		Amount: 200
-	InfiltrateForPowerOutage:
-	AffectedByPowerOutage:
 	Targetable:
 		TargetTypes: Ground, Structure, C4, DetonateAttack, SpyInfiltrate
 	ScalePowerWithHealth:
-	DisabledOverlay:
 	WithDeathAnimation:
 		DeathSequence: dead
 		UseDeathTypeSuffix: false
@@ -1653,7 +1660,7 @@ SBAG:
 		Prerequisites: fact, ~structures.allies, ~techlevel.low
 		Description: Stops infantry and light vehicles.\nCan be crushed by tanks.
 	Valued:
-		Cost: 25
+		Cost: 50
 	CustomSellValue:
 		Value: 0
 	Tooltip:
@@ -1678,7 +1685,7 @@ FENC:
 		Prerequisites: fact, ~structures.soviet, ~techlevel.low
 		Description: Stops infantry and light vehicles.\nCan be crushed by tanks.
 	Valued:
-		Cost: 25
+		Cost: 50
 	CustomSellValue:
 		Value: 0
 	Tooltip:
@@ -1703,7 +1710,7 @@ BRIK:
 		Prerequisites: fact, ~techlevel.medium
 		Description: Stop units and blocks enemy fire.
 	Valued:
-		Cost: 100
+		Cost: 200
 	CustomSellValue:
 		Value: 0
 	Tooltip:

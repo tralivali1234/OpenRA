@@ -568,6 +568,117 @@ namespace OpenRA.Mods.Common.UtilityCommands
 					}
 				}
 
+				// Renamed DisguiseToolTip to DisguiseTooltip in Disguise.
+				if (engineVersion < 20170303)
+					if (node.Key.StartsWith("DisguiseToolTip", StringComparison.Ordinal))
+						RenameNodeKey(node, "DisguiseTooltip");
+
+				// Split UncloakOn: Damage => Damage, Heal, SelfHeal
+				if (engineVersion < 20170315)
+					if (node.Key.StartsWith("UncloakOn", StringComparison.Ordinal))
+						node.Value.Value = node.Value.Value.Replace("Damage", "Damage, Heal, SelfHeal");
+
+				// Removed dead ActorGroupProxy trait
+				if (engineVersion < 20170318)
+					node.Value.Nodes.RemoveAll(n => n.Key == "ActorGroupProxy");
+
+				// Refactor SupplyTruck/AcceptsSupplies traits to DeliversCash/AcceptsDeliveredCash
+				if (engineVersion < 20170415)
+				{
+					if (node.Key == "SupplyTruck")
+						RenameNodeKey(node, "DeliversCash");
+					if (node.Key == "-SupplyTruck")
+						RenameNodeKey(node, "-DeliversCash");
+
+					if (node.Key == "AcceptsSupplies")
+						RenameNodeKey(node, "AcceptsDeliveredCash");
+					if (node.Key == "-AcceptsSupplies")
+						RenameNodeKey(node, "-AcceptsDeliveredCash");
+				}
+
+				// Add random sound support to AmbientSound
+				if (engineVersion < 20170422)
+					if (node.Key == "SoundFile" && parent.Key.StartsWith("AmbientSound", StringComparison.Ordinal))
+						RenameNodeKey(node, "SoundFiles");
+
+				// PauseOnLowPower property has been replaced with PauseOnCondition/RequiresCondition
+				if (engineVersion < 20170501)
+				{
+					if (node.Key.StartsWith("WithRearmAnimation", StringComparison.Ordinal) || node.Key.StartsWith("WithRepairAnimation", StringComparison.Ordinal)
+						|| node.Key.StartsWith("WithIdleAnimation", StringComparison.Ordinal))
+					{
+						var pauseOnLowPowerNode = node.Value.Nodes.FirstOrDefault(n => n.Key == "PauseOnLowPower");
+						if (pauseOnLowPowerNode != null)
+						{
+							node.Value.Nodes.Remove(pauseOnLowPowerNode);
+							Console.WriteLine("PauseOnLowPower has been removed from {0}; use RequiresCondition instead.".F(node.Key));
+						}
+					}
+					else if (node.Key.StartsWith("WithIdleOverlay", StringComparison.Ordinal) || node.Key.StartsWith("WithRepairOverlay", StringComparison.Ordinal))
+					{
+						var pauseOnLowPowerNode = node.Value.Nodes.FirstOrDefault(n => n.Key == "PauseOnLowPower");
+						if (pauseOnLowPowerNode != null)
+						{
+							node.Value.Nodes.Remove(pauseOnLowPowerNode);
+							Console.WriteLine("PauseOnLowPower has been removed from {0}; use PauseOnCondition or RequiresCondition instead.".F(node.Key));
+						}
+					}
+					else if (node.Key.StartsWith("AffectedByPowerOutage", StringComparison.Ordinal))
+					{
+						Console.WriteLine("Actor {0} has AffectedByPowerOutage; use the Condition property to apply its effects.".F(node.Key));
+					}
+					else if (node.Key.StartsWith("IonCannonPower", StringComparison.Ordinal) || node.Key.StartsWith("ProduceActorPower", StringComparison.Ordinal)
+						|| node.Key.StartsWith("NukePower", StringComparison.Ordinal) || node.Key.StartsWith("AttackOrderPower", StringComparison.Ordinal)
+						|| node.Key.StartsWith("GpsPower", StringComparison.Ordinal))
+					{
+						Console.WriteLine("{0} requires PauseOnCondition for pausing.".F(node.Key));
+					}
+				}
+
+				if (engineVersion < 20170507)
+				{
+					if (node.Key == "Offset" && parent.Key.StartsWith("WithHarvestOverlay", StringComparison.Ordinal))
+						RenameNodeKey(node, "LocalOffset");
+
+					if (node.Key == "LocalOffset")
+					{
+						var orig = FieldLoader.GetValue<WVec[]>(node.Key, node.Value.Value);
+						var scaled = orig.Select(o => FieldSaver.FormatValue(new WVec(
+							(int)Math.Round(Math.Sqrt(2) * o.X),
+							(int)Math.Round(Math.Sqrt(2) * o.Y),
+							(int)Math.Round(Math.Sqrt(2) * o.Z))));
+						node.Value.Value = scaled.JoinWith(", ");
+					}
+				}
+
+				// Refactor Rectangle shape RotateToIsometry bool into WAngle LocalYaw
+				if (engineVersion < 20170509)
+				{
+					if (node.Key.StartsWith("RotateToIsometry", StringComparison.Ordinal))
+					{
+						var value = FieldLoader.GetValue<bool>("RotateToIsometry", node.Value.Value);
+						node.Value.Value = value ? "128" : "0";
+
+						node.Key = "LocalYaw";
+					}
+				}
+
+				// Removed GrantConditionOnDeploy.DeployAnimation and made WithMakeAnimation compatible instead
+				if (engineVersion < 20170510)
+				{
+					var grantCondOnDeploy = node.Value.Nodes.FirstOrDefault(n => n.Key == "GrantConditionOnDeploy");
+					if (grantCondOnDeploy != null)
+					{
+						var deployAnimNode = grantCondOnDeploy.Value.Nodes.FirstOrDefault(n => n.Key == "DeployAnimation");
+						if (deployAnimNode != null)
+						{
+							grantCondOnDeploy.Value.Nodes.Remove(deployAnimNode);
+							Console.WriteLine("DeployAnimation was removed from GrantConditionOnDeploy.");
+							Console.WriteLine("Use WithMakeAnimation instead if a deploy animation is needed.");
+						}
+					}
+				}
+
 				UpgradeActorRules(modData, engineVersion, ref node.Value.Nodes, node, depth + 1);
 			}
 
@@ -608,6 +719,43 @@ namespace OpenRA.Mods.Common.UtilityCommands
 				{
 					if (node.Key == "TracksTarget")
 						node.Key = "TrackTarget";
+				}
+
+				// Refactor GravityBomb Speed WDist to Velocity WVec and Acceleration from vertical WDist to vector
+				if (engineVersion < 20170329)
+				{
+					var projectile = node.Value.Nodes.FirstOrDefault(n => n.Key == "Projectile");
+					if (projectile != null && projectile.Value.Value == "GravityBomb")
+					{
+						var speedNode = projectile.Value.Nodes.FirstOrDefault(x => x.Key == "Speed");
+						if (speedNode != null)
+						{
+							var oldWDistSpeed = FieldLoader.GetValue<string>("Speed", speedNode.Value.Value);
+							speedNode.Value.Value = "0, 0, -" + oldWDistSpeed;
+							speedNode.Key = "Velocity";
+						}
+
+						var accelNode = projectile.Value.Nodes.FirstOrDefault(x => x.Key == "Acceleration");
+						if (accelNode != null)
+						{
+							var oldWDistAccel = FieldLoader.GetValue<string>("Acceleration", accelNode.Value.Value);
+							accelNode.Value.Value = "0, 0, -" + oldWDistAccel;
+						}
+					}
+				}
+
+				// Optimal victim scan radii are now calculated automatically
+				if (engineVersion < 20170505)
+				{
+					var targetExtraSearchRadius = node.Value.Nodes.FirstOrDefault(n => n.Key == "TargetSearchRadius" || n.Key == "TargetExtraSearchRadius");
+					if (targetExtraSearchRadius != null)
+					{
+						Console.WriteLine("Warheads and projectiles now calculate the best victim search radius automatically.");
+						Console.WriteLine("If you absolutely need to override that for whatever reason, use the new fields:");
+						Console.WriteLine("VictimScanRadius for warheads, BlockerScanRadius for projectiles,");
+						Console.WriteLine("BounceBlockerScanRadius for bouncing Bullets and AreaVictimScanRadius for AreaBeams.");
+						node.Value.Nodes.Remove(targetExtraSearchRadius);
+					}
 				}
 
 				UpgradeWeaponRules(modData, engineVersion, ref node.Value.Nodes, node, depth + 1);

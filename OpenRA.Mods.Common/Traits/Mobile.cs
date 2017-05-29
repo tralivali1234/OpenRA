@@ -16,6 +16,7 @@ using System.Linq;
 using OpenRA.Activities;
 using OpenRA.Mods.Common.Activities;
 using OpenRA.Mods.Common.Effects;
+using OpenRA.Mods.Common.Pathfinder;
 using OpenRA.Primitives;
 using OpenRA.Traits;
 
@@ -381,7 +382,7 @@ namespace OpenRA.Mods.Common.Traits
 	}
 
 	public class Mobile : ConditionalTrait<MobileInfo>, INotifyCreated, IIssueOrder, IResolveOrder, IOrderVoice, IPositionable, IMove,
-		IFacing, IDeathActorInitModifier, INotifyAddedToWorld, INotifyRemovedFromWorld, INotifyBlockingMove, IActorPreviewInitModifier
+		IFacing, IDeathActorInitModifier, INotifyAddedToWorld, INotifyRemovedFromWorld, INotifyBlockingMove, IActorPreviewInitModifier, INotifyBecomingIdle
 	{
 		const int AverageTicksBeforePathing = 5;
 		const int SpreadTicksBeforePathing = 5;
@@ -913,7 +914,7 @@ namespace OpenRA.Mods.Common.Traits
 
 		public Activity ScriptedMove(CPos cell) { return new Move(self, cell); }
 		public Activity MoveTo(CPos cell, int nearEnough) { return new Move(self, cell, WDist.FromCells(nearEnough)); }
-		public Activity MoveTo(CPos cell, Actor ignoredActor) { return new Move(self, cell, ignoredActor); }
+		public Activity MoveTo(CPos cell, Actor ignoreActor) { return new Move(self, cell, WDist.Zero, ignoreActor); }
 		public Activity MoveWithinRange(Target target, WDist range) { return new MoveWithinRange(self, target, WDist.Zero, range); }
 		public Activity MoveWithinRange(Target target, WDist minRange, WDist maxRange) { return new MoveWithinRange(self, target, minRange, maxRange); }
 		public Activity MoveFollow(Actor self, Target target, WDist minRange, WDist maxRange) { return new Follow(self, target, minRange, maxRange); }
@@ -986,6 +987,35 @@ namespace OpenRA.Mods.Common.Traits
 			// Allows the husk to drag to its final position
 			if (CanEnterCell(self.Location, self, false))
 				init.Add(new HuskSpeedInit(MovementSpeedForCell(self, self.Location)));
+		}
+
+		CPos? ClosestGroundCell()
+		{
+			var above = new CPos(TopLeft.X, TopLeft.Y);
+			if (CanEnterCell(above))
+				return above;
+
+			var pathFinder = self.World.WorldActor.Trait<IPathFinder>();
+			List<CPos> path;
+			using (var search = PathSearch.Search(self.World, Info, self, true,
+					loc => loc.Layer == 0 && CanEnterCell(loc))
+				.FromPoint(self.Location))
+				path = pathFinder.FindPath(search);
+
+			if (path.Count > 0)
+				return path[0];
+
+			return null;
+		}
+
+		void INotifyBecomingIdle.OnBecomingIdle(Actor self)
+		{
+			if (TopLeft.Layer == 0)
+				return;
+
+			var moveTo = ClosestGroundCell();
+			if (moveTo != null)
+				self.QueueActivity(MoveTo(moveTo.Value, 0));
 		}
 	}
 }

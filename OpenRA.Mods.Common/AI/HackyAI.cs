@@ -342,7 +342,7 @@ namespace OpenRA.Mods.Common.AI
 			foreach (var defense in Info.DefenseQueues)
 				builders.Add(new BaseBuilder(this, defense, p, playerPower, playerResource));
 
-			Random = new MersenneTwister((int)p.PlayerActor.ActorID);
+			Random = new MersenneTwister(Game.CosmeticRandom.Next());
 
 			// Avoid all AIs trying to rush in the same tick, randomize their initial rush a little.
 			var smallFractionOfRushInterval = Info.RushInterval / 20;
@@ -562,7 +562,7 @@ namespace OpenRA.Mods.Common.AI
 
 					foreach (var r in nearbyResources)
 					{
-						var found = findPos(r, baseCenter, Info.MinBaseRadius, Info.MaxBaseRadius);
+						var found = findPos(baseCenter, r, Info.MinBaseRadius, Info.MaxBaseRadius);
 						if (found != null)
 							return found;
 					}

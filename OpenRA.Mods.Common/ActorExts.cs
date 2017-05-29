@@ -47,7 +47,7 @@ namespace OpenRA.Mods.Common
 			if (self.EffectiveOwner != null && self.EffectiveOwner.Disguised && !toActor.Info.HasTraitInfo<IgnoresDisguiseInfo>())
 				return toActor.Owner.Stances[self.EffectiveOwner.Owner] == Stance.Ally;
 
-			return stance == Stance.Ally;
+			return false;
 		}
 
 		public static bool AppearsHostileTo(this Actor self, Actor toActor)
@@ -125,6 +125,10 @@ namespace OpenRA.Mods.Common
 		public static bool CanHarvestAt(this Actor self, CPos pos, ResourceLayer resLayer, HarvesterInfo harvInfo,
 			ResourceClaimLayer territory)
 		{
+			// Resources only exist in the ground layer
+			if (pos.Layer != 0)
+				return false;
+
 			var resType = resLayer.GetResource(pos);
 			if (resType == null)
 				return false;

@@ -26,10 +26,11 @@ FireballLauncher:
 Bomb:
 	ReloadDelay: 60
 	Burst: 5
-	BurstDelay: 5
-	Range: 2c0
+	BurstDelay: 6
+	Range: 2c512
 	Projectile: GravityBomb
-		Speed: 170
+		Velocity: 72, 0, -90
+		Acceleration: 0, 0, -8
 		Image: 120mm
 		Shadow: true
 		Palette: ra
@@ -46,7 +47,7 @@ Bomb:
 		DamageTypes: Prone100Percent, TriggerProne, ExplosionDeath
 	Warhead@2Eff: CreateEffect
 		Explosions: large_explosion
-		ExplosionPalette: effectalpha75
+		ExplosionPalette: effect-ignore-lighting-alpha75
 		ImpactSounds: expnew09.aud
 		InvalidImpactTypes: Water
 	Warhead@3EffWater: CreateEffect
@@ -98,6 +99,23 @@ SlimeAttack:
 			Concrete: 20
 		DamageTypes: Prone100Percent, TriggerProne, SmallExplosionDeath
 
+Tentacle:
+	ReloadDelay: 80
+	Range: 1c384
+	Report: floatk1.aud
+	Projectile: InstantHit
+	InvalidTargets: Wall, Bridge
+	Warhead@1Dam: TargetDamage
+		Damage: 160
+		InvalidTargets: Wall, Bridge
+		Versus:
+			None: 60
+			Wood: 45
+			Light: 90
+			Heavy: 55
+			Concrete: 10
+		DamageTypes: Prone50Percent, TriggerProne, SmallExplosionDeath
+
 Veins:
 	ReloadDelay: 16
 	Warhead@Damage: TargetDamage
@@ -129,7 +147,7 @@ Veins:
 		DamageTypes: Prone100Percent, TriggerProne, ExplosionDeath
 	Warhead@2Eff: CreateEffect
 		Explosions: tiny_twlt
-		ExplosionPalette: effectalpha75
+		ExplosionPalette: effect-ignore-lighting-alpha75
 		InvalidImpactTypes: Water
 	Warhead@3EffWater: CreateEffect
 		Explosions: small_watersplash

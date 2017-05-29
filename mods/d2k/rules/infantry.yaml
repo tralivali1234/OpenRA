@@ -44,6 +44,7 @@ engineer:
 		CaptureTypes: building, husk
 		PlayerExperience: 50
 	-AutoTarget:
+	-RevealOnFire:
 	Voiced:
 		VoiceSet: EngineerVoice
 
@@ -78,6 +79,7 @@ trooper:
 thumper:
 	Inherits: ^Infantry
 	-AutoTarget:
+	-RevealOnFire:
 	Buildable:
 		Queue: Infantry
 		BuildPaletteOrder: 60
@@ -109,7 +111,7 @@ thumper:
 		Sequence: thump-sand
 		RequiresCondition: deployed
 	AmbientSound:
-		SoundFile: THUMPER1.WAV
+		SoundFiles: THUMPER1.WAV
 		Interval: 60
 		RequiresCondition: deployed
 	AttractsWorms:
@@ -148,10 +150,14 @@ fremen:
 	Cloak:
 		InitialDelay: 85
 		CloakDelay: 85
-		UncloakOn: Attack, Unload, Infiltrate, Demolish, Dock, Damage
+		UncloakOn: Attack, Unload, Infiltrate, Demolish, Dock, Damage, Heal
 		CloakSound: STEALTH1.WAV
 		UncloakSound: STEALTH2.WAV
 		IsPlayerPalette: true
+		RequiresCondition: !cloak-force-disabled
+	GrantConditionOnDamageState@UNCLOAK:
+		Condition: cloak-force-disabled
+		ValidDamageStates: Critical
 	-MustBeDestroyed:
 	Voiced:
 		VoiceSet: FremenVoice
@@ -239,13 +245,18 @@ saboteur:
 		Flashes: 0
 		EnterBehaviour: Suicide
 	-AutoTarget:
+	-RevealOnFire:
 	Cloak:
 		InitialDelay: 85
 		CloakDelay: 85
 		CloakSound: STEALTH1.WAV
 		UncloakSound: STEALTH2.WAV
-		UncloakOn: Attack, Unload, Infiltrate, Demolish, Move, Damage
+		UncloakOn: Attack, Unload, Infiltrate, Demolish, Move, Damage, Heal
 		IsPlayerPalette: true
+		RequiresCondition: !cloak-force-disabled
+	GrantConditionOnDamageState@UNCLOAK:
+		Condition: cloak-force-disabled
+		ValidDamageStates: Critical
 	Voiced:
 		VoiceSet: SaboteurVoice
 
@@ -259,3 +270,4 @@ nsfremen:
 	RenderSprites:
 		Image: fremen
 	-Cloak:
+	-GrantConditionOnDamageState@UNCLOAK:

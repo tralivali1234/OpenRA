@@ -38,8 +38,8 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			}
 		}
 
-		public static void ShowSlotDropDown(LobbyLogic logic, DropDownButtonWidget dropdown, Session.Slot slot,
-			Session.Client client, OrderManager orderManager)
+		public static void ShowSlotDropDown(DropDownButtonWidget dropdown, Session.Slot slot,
+			Session.Client client, OrderManager orderManager, MapPreview map)
 		{
 			var options = new Dictionary<string, IEnumerable<SlotDropDownOption>>() { { "Slot", new List<SlotDropDownOption>()
 			{
@@ -50,7 +50,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			var bots = new List<SlotDropDownOption>();
 			if (slot.AllowBots)
 			{
-				foreach (var b in logic.Map.Rules.Actors["player"].TraitInfos<IBotInfo>().Select(t => t.Name))
+				foreach (var b in map.Rules.Actors["player"].TraitInfos<IBotInfo>().Select(t => t.Name))
 				{
 					var bot = b;
 					var botController = orderManager.LobbyInfo.Clients.FirstOrDefault(c => c.IsAdmin);
@@ -294,6 +294,8 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 				name.YieldKeyboardFocus();
 				return true;
 			};
+
+			HideChildWidget(parent, "SLOT_OPTIONS");
 		}
 
 		public static void SetupNameWidget(Widget parent, Session.Slot s, Session.Client c)
@@ -304,18 +306,16 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			name.GetText = () => label;
 		}
 
-		public static void SetupEditableSlotWidget(LobbyLogic logic, Widget parent, Session.Slot s, Session.Client c, OrderManager orderManager)
+		public static void SetupEditableSlotWidget(Widget parent, Session.Slot s, Session.Client c, OrderManager orderManager, MapPreview map)
 		{
 			var slot = parent.Get<DropDownButtonWidget>("SLOT_OPTIONS");
 			slot.IsVisible = () => true;
 			slot.IsDisabled = () => orderManager.LocalClient.IsReady;
 			slot.GetText = () => c != null ? c.Name : s.Closed ? "Closed" : "Open";
-			slot.OnMouseDown = _ => ShowSlotDropDown(logic, slot, s, c, orderManager);
+			slot.OnMouseDown = _ => ShowSlotDropDown(slot, s, c, orderManager, map);
 
 			// Ensure Name selector (if present) is hidden
-			var name = parent.GetOrNull("NAME");
-			if (name != null)
-				name.IsVisible = () => false;
+			HideChildWidget(parent, "NAME");
 		}
 
 		public static void SetupSlotWidget(Widget parent, Session.Slot s, Session.Client c)
@@ -325,9 +325,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			name.GetText = () => c != null ? c.Name : s.Closed ? "Closed" : "Open";
 
 			// Ensure Slot selector (if present) is hidden
-			var slot = parent.GetOrNull("SLOT_OPTIONS");
-			if (slot != null)
-				slot.IsVisible = () => false;
+			HideChildWidget(parent, "SLOT_OPTIONS");
 		}
 
 		public static void SetupKickWidget(Widget parent, Session.Slot s, Session.Client c, OrderManager orderManager, Widget lobby, Action before, Action after)
@@ -427,20 +425,25 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 
 		public static void SetupEditableTeamWidget(Widget parent, Session.Slot s, Session.Client c, OrderManager orderManager, MapPreview map)
 		{
-			var dropdown = parent.Get<DropDownButtonWidget>("TEAM");
+			var dropdown = parent.Get<DropDownButtonWidget>("TEAM_DROPDOWN");
+			dropdown.IsVisible = () => true;
 			dropdown.IsDisabled = () => s.LockTeam || orderManager.LocalClient.IsReady;
 			dropdown.OnMouseDown = _ => ShowTeamDropDown(dropdown, c, orderManager, map.PlayerCount);
 			dropdown.GetText = () => (c.Team == 0) ? "-" : c.Team.ToString();
+
+			HideChildWidget(parent, "TEAM");
 		}
 
 		public static void SetupTeamWidget(Widget parent, Session.Slot s, Session.Client c)
 		{
 			parent.Get<LabelWidget>("TEAM").GetText = () => (c.Team == 0) ? "-" : c.Team.ToString();
+			HideChildWidget(parent, "TEAM_DROPDOWN");
 		}
 
 		public static void SetupEditableSpawnWidget(Widget parent, Session.Slot s, Session.Client c, OrderManager orderManager, MapPreview map)
 		{
-			var dropdown = parent.Get<DropDownButtonWidget>("SPAWN");
+			var dropdown = parent.Get<DropDownButtonWidget>("SPAWN_DROPDOWN");
+			dropdown.IsVisible = () => true;
 			dropdown.IsDisabled = () => s.LockSpawn || orderManager.LocalClient.IsReady;
 			dropdown.OnMouseDown = _ =>
 			{
@@ -450,11 +453,14 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 				ShowSpawnDropDown(dropdown, c, orderManager, spawnPoints);
 			};
 			dropdown.GetText = () => (c.SpawnPoint == 0) ? "-" : Convert.ToChar('A' - 1 + c.SpawnPoint).ToString();
+
+			HideChildWidget(parent, "SPAWN");
 		}
 
 		public static void SetupSpawnWidget(Widget parent, Session.Slot s, Session.Client c)
 		{
 			parent.Get<LabelWidget>("SPAWN").GetText = () => (c.SpawnPoint == 0) ? "-" : Convert.ToChar('A' - 1 + c.SpawnPoint).ToString();
+			HideChildWidget(parent, "SPAWN_DROPDOWN");
 		}
 
 		public static void SetupEditableReadyWidget(Widget parent, Session.Slot s, Session.Client c, OrderManager orderManager, MapPreview map)
@@ -516,6 +522,43 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			}
 
 			return address;
+		}
+
+		public static void SetupChatLine(ContainerWidget template, Color c, string from, string text)
+		{
+			var nameLabel = template.Get<LabelWidget>("NAME");
+			var timeLabel = template.Get<LabelWidget>("TIME");
+			var textLabel = template.Get<LabelWidget>("TEXT");
+
+			var name = from + ":";
+			var font = Game.Renderer.Fonts[nameLabel.Font];
+			var nameSize = font.Measure(from);
+
+			var time = DateTime.Now;
+			timeLabel.GetText = () => "{0:D2}:{1:D2}".F(time.Hour, time.Minute);
+
+			nameLabel.GetColor = () => c;
+			nameLabel.GetText = () => name;
+			nameLabel.Bounds.Width = nameSize.X;
+			textLabel.Bounds.X += nameSize.X;
+			textLabel.Bounds.Width -= nameSize.X;
+
+			// Hack around our hacky wordwrap behavior: need to resize the widget to fit the text
+			text = WidgetUtils.WrapText(text, textLabel.Bounds.Width, font);
+			textLabel.GetText = () => text;
+			var dh = font.Measure(text).Y - textLabel.Bounds.Height;
+			if (dh > 0)
+			{
+				textLabel.Bounds.Height += dh;
+				template.Bounds.Height += dh;
+			}
+		}
+
+		static void HideChildWidget(Widget parent, string widgetId)
+		{
+			var widget = parent.GetOrNull(widgetId);
+			if (widget != null)
+				widget.IsVisible = () => false;
 		}
 	}
 }

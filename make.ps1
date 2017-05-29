@@ -42,6 +42,9 @@ function Clean-Command
 		rm mods/*/*.dll
 		rm *.pdb
 		rm mods/*/*.pdb
+		rm *.exe
+		rm ./*/bin -r
+		rm ./*/obj -r
 		if (Test-Path thirdparty/download/)
 		{
 			rmdir thirdparty/download -Recurse -Force
@@ -71,14 +74,10 @@ function Version-Command
 	
 	if ($version -ne $null)
 	{
-		$mods = @("mods/ra/mod.yaml", "mods/cnc/mod.yaml", "mods/d2k/mod.yaml", "mods/ts/mod.yaml", "mods/modchooser/mod.yaml", "mods/all/mod.yaml")
+		$mods = @("mods/ra/mod.yaml", "mods/cnc/mod.yaml", "mods/d2k/mod.yaml", "mods/ts/mod.yaml", "mods/modcontent/mod.yaml", "mods/all/mod.yaml")
 		foreach ($mod in $mods)
 		{
 			$replacement = (gc $mod) -Replace "Version:.*", ("Version: {0}" -f $version)
-			sc $mod $replacement
-
-			# The tab is a workaround for not replacing inside of "Packages:"
-			$replacement = (gc $mod) -Replace "	modchooser:.*", ("	modchooser: {0}" -f $version)
 			sc $mod $replacement
 
 			$prefix = $(gc $mod) | Where { $_.ToString().EndsWith(": User") }
@@ -131,8 +130,6 @@ function Check-Command {
 		./OpenRA.Utility.exe all --check-explicit-interfaces
 		echo "Checking for code style violations in OpenRA.Platforms.Default..."
 		./OpenRA.Utility.exe cnc --check-code-style OpenRA.Platforms.Default
-		echo "Checking for code style violations in OpenRA.GameMonitor..."
-		./OpenRA.Utility.exe ra --check-code-style OpenRA.GameMonitor
 		echo "Checking for code style violations in OpenRA.Game..."
 		./OpenRA.Utility.exe ra --check-code-style OpenRA.Game
 		echo "Checking for code style violations in OpenRA.Mods.Common..."

@@ -1,3 +1,11 @@
+--[[
+   Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+   This file is part of OpenRA, which is free software. It is made
+   available to you under the terms of the GNU General Public License
+   as published by the Free Software Foundation, either version 3 of
+   the License, or (at your option) any later version. For more
+   information, see COPYING.
+]]
 CheckForBase = function()
 	baseBuildings = Map.ActorsInBox(Map.TopLeft, CFBPoint.CenterPosition, function(actor)
 		return actor.Type == "fact" or actor.Type == "powr"
@@ -206,14 +214,16 @@ WorldLoaded = function()
 	Trigger.OnDamaged(mcvtransport, Expand)
 
 	Trigger.OnKilled(Radar, function()
-		player.MarkFailedObjective(CaptureObjective)
-	end)
-
-	Trigger.OnCapture(Radar, function(self, captor)
-		if captor.Owner ~= player then
-			return
+		if not player.IsObjectiveCompleted(CaptureObjective) then
+			player.MarkFailedObjective(CaptureObjective)
 		end
 
+		if HoldObjective then
+			player.MarkFailedObjective(HoldObjective)
+		end
+	end)
+
+	Trigger.OnCapture(Radar, function()
 		HoldObjective = player.AddPrimaryObjective("Defend the Radar Dome.")
 		player.MarkCompletedObjective(CaptureObjective)
 
@@ -222,15 +232,12 @@ WorldLoaded = function()
 			ExpansionCheck = true
 		end
 
-		Reinforcements.Reinforce(Greece, ArmorReinfGreece, AlliedCrossroadsToRadarPath , 0, function(soldier)
-			soldier.Hunt()
-		end)
+		Reinforcements.Reinforce(Greece, ArmorReinfGreece, AlliedCrossroadsToRadarPath , 0, IdleHunt)
 
-		Trigger.AfterDelay(1, function()
-			local newRadar = Actor.Create("dome", true, { Owner = player, Location = Radar.Location })
-			newRadar.Health = Radar.Health
-			Radar.Destroy()
-			Trigger.OnKilled(newRadar, function()
+		Radar.GrantCondition("captured")
+		Trigger.ClearAll(Radar)
+		Trigger.AfterDelay(0, function()
+			Trigger.OnRemovedFromWorld(Radar, function()
 				player.MarkFailedObjective(HoldObjective)
 			end)
 		end)

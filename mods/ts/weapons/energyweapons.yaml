@@ -105,7 +105,7 @@ SonicZap:
 		ValidTargets: Ground
 	Warhead@2Eff: CreateEffect
 		Explosions: large_explosion
-		ExplosionPalette: effectalpha75
+		ExplosionPalette: effect-ignore-lighting-alpha75
 		ImpactSounds: expnew12.aud
 		InvalidImpactTypes: Water
 	Warhead@3EffWater: CreateEffect
@@ -198,3 +198,10 @@ TurretLaserFire:
 		SecondaryBeamColor: FF000030
 	Warhead@1Dam: SpreadDamage
 		Damage: 30
+
+LaserFence:
+	Projectile: InstantHit
+	Warhead@1Dam: TargetDamage
+		DebugOverlayColor: FF0000
+		Damage: 99999
+		DamageTypes: FireDeath

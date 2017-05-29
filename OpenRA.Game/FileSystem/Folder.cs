@@ -9,6 +9,7 @@
  */
 #endregion
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -47,7 +48,26 @@ namespace OpenRA.FileSystem
 		public bool Contains(string filename)
 		{
 			var combined = Path.Combine(path, filename);
-			return combined.StartsWith(path) && File.Exists(combined);
+			return combined.StartsWith(path, StringComparison.Ordinal) && File.Exists(combined);
+		}
+
+		public IReadOnlyPackage OpenPackage(string filename, FileSystem context)
+		{
+			var subFolder = Platform.ResolvePath(Path.Combine(Name, filename));
+			if (Directory.Exists(subFolder))
+				return new Folder(subFolder);
+
+			// Other package types can be loaded normally
+			IReadOnlyPackage package;
+			var s = GetStream(filename);
+			if (s == null)
+				return null;
+
+			if (context.TryParsePackage(s, filename, out package))
+				return package;
+
+			s.Dispose();
+			return null;
 		}
 
 		public void Update(string filename, byte[] contents)

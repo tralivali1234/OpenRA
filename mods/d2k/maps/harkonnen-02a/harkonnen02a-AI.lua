@@ -1,3 +1,11 @@
+--[[
+   Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+   This file is part of OpenRA, which is free software. It is made
+   available to you under the terms of the GNU General Public License
+   as published by the Free Software Foundation, either version 3 of
+   the License, or (at your option) any later version. For more
+   information, see COPYING.
+]]
 IdlingUnits = { }
 
 AttackGroupSize =
@@ -117,10 +125,6 @@ ProduceInfantry = function()
 end
 
 ActivateAI = function()
-	Trigger.AfterDelay(0, InitAIUnits)
-
-	-- Finish the upgrades first before trying to build something
-	Trigger.AfterDelay(DateTime.Seconds(14), function()
-		ProduceInfantry()
-	end)
+	InitAIUnits()
+	ProduceInfantry()
 end

@@ -18,8 +18,8 @@
 		Acceleration: 6
 		MinimumLaunchAngle: 128
 		MaximumLaunchAngle: 192
-		VerticalRateOfTurn: 16
-		CruiseAltitude: 1c512
+		VerticalRateOfTurn: 11
+		CruiseAltitude: 2c124
 		AllowSnapping: true
 	Warhead@1Dam: SpreadDamage
 		Spread: 108
@@ -35,6 +35,7 @@
 		DamageTypes: Prone50Percent, TriggerProne, SmallExplosionDeath
 	Warhead@2Eff: CreateEffect
 		Explosions: small_clsn
+		ExplosionPalette: effect-ignore-lighting-alpha75
 		ImpactSounds: expnew12.aud
 		InvalidImpactTypes: Water
 	Warhead@3EffWater: CreateEffect

@@ -113,7 +113,7 @@ namespace OpenRA
 			}
 		}
 
-		public void QueryRemoteMapDetails(IEnumerable<string> uids, Action<MapPreview> mapDetailsReceived = null, Action queryFailed = null)
+		public void QueryRemoteMapDetails(string repositoryUrl, IEnumerable<string> uids, Action<MapPreview> mapDetailsReceived = null, Action queryFailed = null)
 		{
 			var maps = uids.Distinct()
 				.Select(uid => previews[uid])
@@ -126,7 +126,7 @@ namespace OpenRA
 			foreach (var p in maps.Values)
 				p.UpdateRemoteSearch(MapStatus.Searching, null);
 
-			var url = Game.Settings.Game.MapRepository + "hash/" + string.Join(",", maps.Keys) + "/yaml";
+			var url = repositoryUrl + "hash/" + string.Join(",", maps.Keys) + "/yaml";
 
 			Action<DownloadDataCompletedEventArgs> onInfoComplete = i =>
 			{
@@ -201,7 +201,19 @@ namespace OpenRA
 				foreach (var p in todo)
 				{
 					if (p.Preview != null)
-						Game.RunAfterTick(() => p.SetMinimap(sheetBuilder.Add(p.Preview)));
+					{
+						Game.RunAfterTick(() =>
+						{
+							try
+							{
+								p.SetMinimap(sheetBuilder.Add(p.Preview));
+							}
+							catch (Exception e)
+							{
+								Log.Write("debug", "Failed to load minimap with exception: {0}", e);
+							}
+						});
+					}
 
 					// Yuck... But this helps the UI Jank when opening the map selector significantly.
 					Thread.Sleep(Environment.ProcessorCount == 1 ? 25 : 5);

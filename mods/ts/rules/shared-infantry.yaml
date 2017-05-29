@@ -4,7 +4,7 @@ E1:
 	Buildable:
 		Queue: Infantry
 		BuildPaletteOrder: 10
-		Prerequisites: ~barracks
+		Prerequisites: ~barracks, ~techlevel.low
 		Description: General-purpose infantry.\n  Strong vs Infantry\n  Weak vs Vehicles, Aircraft
 	Valued:
 		Cost: 120
@@ -31,6 +31,8 @@ E1:
 		FactionImages:
 			gdi: e1.gdi
 			nod: e1.nod
+	RevealsShroud:
+		Range: 5c0
 
 ENGINEER:
 	Inherits: ^Soldier
@@ -40,15 +42,15 @@ ENGINEER:
 		Name: Engineer
 	Buildable:
 		Queue: Infantry
-		BuildPaletteOrder: 30
-		Prerequisites: ~barracks
+		BuildPaletteOrder: 40
+		Prerequisites: ~barracks, ~techlevel.low
 		Description: Infiltrates and captures enemy structures.\n  Unarmed
 	Voiced:
 		VoiceSet: Engineer
 	Mobile:
 		Speed: 56
 	Health:
-		HP: 500
+		HP: 100
 	Passenger:
 		PipType: Yellow
 	EngineerRepair:

@@ -1,11 +1,8 @@
 Metadata:
 	Title: Red Alert
-	Description: In a world where Hitler was assassinated and the Third Reich never\nexisted, the Soviet Union seeks power over all of Europe.  Allied\nagainst this Evil Empire, the free world faces a Cold War turned hot.\n\nRed Alert fuses the quick and fun gameplay of the original\nC&C: Red Alert, with balance improvements and new gameplay\nfeatures inspired by modern RTS games.
 	Version: {DEV_VERSION}
-	Author: the OpenRA Developers
 
-RequiresMods:
-	modchooser: {DEV_VERSION}
+PackageFormats: Mix
 
 Packages:
 	~^Content/ra/v2/
@@ -212,6 +209,10 @@ GameSpeeds:
 		Name: Normal
 		Timestep: 40
 		OrderLatency: 3
+	fast:
+		Name: Fast
+		Timestep: 35
+		OrderLatency: 4
 	faster:
 		Name: Faster
 		Timestep: 30

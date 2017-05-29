@@ -194,9 +194,10 @@ namespace OpenRA.Mods.Common.Widgets
 
 				if (!flashed && !o.SuppressVisualFeedback)
 				{
-					if (o.TargetActor != null)
+					var visualTargetActor = o.VisualFeedbackTarget ?? o.TargetActor;
+					if (visualTargetActor != null)
 					{
-						world.AddFrameEndTask(w => w.Add(new FlashTarget(o.TargetActor)));
+						world.AddFrameEndTask(w => w.Add(new FlashTarget(visualTargetActor)));
 						flashed = true;
 					}
 					else if (o.TargetLocation != CPos.Zero)
@@ -241,7 +242,8 @@ namespace OpenRA.Mods.Common.Widgets
 			{
 				var key = Hotkey.FromKeyInput(e);
 
-				if (key == Game.Settings.Keys.PauseKey && World.LocalPlayer != null) // Disable pausing for spectators
+				if (key == Game.Settings.Keys.PauseKey
+					&& (Game.IsHost || (World.LocalPlayer != null && World.LocalPlayer.WinState != WinState.Lost))) // Disable pausing for spectators and defeated players
 					World.SetPauseState(!World.Paused);
 				else if (key == Game.Settings.Keys.SelectAllUnitsKey && !World.IsGameOver)
 				{

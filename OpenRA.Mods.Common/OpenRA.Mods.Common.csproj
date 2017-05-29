@@ -41,6 +41,10 @@
       <HintPath>..\thirdparty\download\FuzzyLogicLibrary.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="rix0rrr.BeaconLib, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\thirdparty\download\rix0rrr.BeaconLib.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
@@ -88,7 +92,7 @@
     <Compile Include="Activities\CaptureActor.cs" />
     <Compile Include="Activities\DeliverResources.cs" />
     <Compile Include="Activities\Demolish.cs" />
-    <Compile Include="Activities\DonateSupplies.cs" />
+    <Compile Include="Activities\DonateCash.cs" />
     <Compile Include="Activities\Enter.cs" />
     <Compile Include="Activities\EnterTransport.cs" />
     <Compile Include="Activities\ExternalCaptureActor.cs" />
@@ -181,10 +185,9 @@
     <Compile Include="Lint\CheckRangeLimit.cs" />
     <Compile Include="Lint\CheckVoiceReferences.cs" />
     <Compile Include="Lint\CheckConditions.cs" />
-    <Compile Include="Lint\CheckTargetHealthRadius.cs" />
     <Compile Include="Lint\LintBuildablePrerequisites.cs" />
     <Compile Include="Lint\LintExts.cs" />
-    <Compile Include="LoadScreens\ModChooserLoadScreen.cs" />
+    <Compile Include="LoadScreens\ModContentLoadScreen.cs" />
     <Compile Include="ActorInitializer.cs" />
     <Compile Include="Scripting\Properties\AmmoPoolProperties.cs" />
     <Compile Include="ShroudExts.cs" />
@@ -248,7 +251,7 @@
     <Compile Include="Scripting\Properties\ParadropProperties.cs" />
     <Compile Include="Scripting\Properties\ParatroopersProperties.cs" />
     <Compile Include="TraitsInterfaces.cs" />
-    <Compile Include="Traits\AcceptsSupplies.cs" />
+    <Compile Include="Traits\AcceptsDeliveredCash.cs" />
     <Compile Include="Traits\Air\Aircraft.cs" />
     <Compile Include="Traits\Air\AttackBomber.cs" />
     <Compile Include="Traits\Air\AttackHeli.cs" />
@@ -291,6 +294,7 @@
     <Compile Include="Traits\Buildings\RepairsUnits.cs" />
     <Compile Include="Traits\Buildings\Reservable.cs" />
     <Compile Include="Traits\Burns.cs" />
+    <Compile Include="Traits\ChangesTerrain.cs" />
     <Compile Include="Traits\Health.cs" />
     <Compile Include="Traits\PowerTooltip.cs" />
     <Compile Include="Traits\Render\VeteranProductionIconOverlay.cs" />
@@ -333,7 +337,6 @@
     <Compile Include="Traits\GivesCashOnCapture.cs" />
     <Compile Include="Traits\GivesBounty.cs" />
     <Compile Include="Traits\GivesExperience.cs" />
-    <Compile Include="Traits\GrantConditionOnPrerequisite.cs" />
     <Compile Include="Traits\Guard.cs" />
     <Compile Include="Traits\Guardable.cs" />
     <Compile Include="Traits\Harvester.cs" />
@@ -349,7 +352,6 @@
     <Compile Include="Traits\KillsSelf.cs" />
     <Compile Include="Traits\AmmoPool.cs" />
     <Compile Include="Traits\Mobile.cs" />
-    <Compile Include="Traits\Modifiers\DisabledOverlay.cs" />
     <Compile Include="Traits\Modifiers\FrozenUnderFog.cs" />
     <Compile Include="Traits\Modifiers\HiddenUnderFog.cs" />
     <Compile Include="Traits\Modifiers\WithColoredOverlay.cs" />
@@ -371,7 +373,6 @@
     <Compile Include="Traits\PaletteEffects\FlashPaletteEffect.cs" />
     <Compile Include="Traits\PaletteEffects\MenuPaletteEffect.cs" />
     <Compile Include="Traits\PaletteEffects\RotationPaletteEffect.cs" />
-    <Compile Include="Traits\Player\ActorGroupProxy.cs" />
     <Compile Include="Traits\Player\AllyRepair.cs" />
     <Compile Include="Traits\Player\BaseAttackNotifier.cs" />
     <Compile Include="Traits\Player\ClassicProductionQueue.cs" />
@@ -409,6 +410,7 @@
     <Compile Include="Traits\Render\Hovers.cs" />
     <Compile Include="Traits\Render\LeavesTrails.cs" />
     <Compile Include="Traits\Render\RenderSpritesEditorOnly.cs" />
+    <Compile Include="Traits\Render\WithTurretedAttackAnimation.cs" />
     <Compile Include="Traits\Render\WithTurretedSpriteBody.cs" />
     <Compile Include="Traits\Render\RenderUtils.cs" />
     <Compile Include="Traits\Render\RenderDebugState.cs" />
@@ -478,7 +480,7 @@
     <Compile Include="Traits\Sound\DeathSounds.cs" />
     <Compile Include="Traits\Sound\SoundOnDamageTransition.cs" />
     <Compile Include="Traits\Sound\AttackSounds.cs" />
-    <Compile Include="Traits\SupplyTruck.cs" />
+    <Compile Include="Traits\DeliversCash.cs" />
     <Compile Include="Traits\SupportPowers\AirstrikePower.cs" />
     <Compile Include="Traits\SupportPowers\GrantExternalConditionPower.cs" />
     <Compile Include="Traits\SupportPowers\NukePower.cs" />
@@ -496,10 +498,12 @@
     <Compile Include="Traits\Conditions\GrantConditionOnDeploy.cs" />
     <Compile Include="Traits\Conditions\DisableOnCondition.cs" />
     <Compile Include="Traits\Conditions\ConditionalTrait.cs" />
+    <Compile Include="Traits\Conditions\PausableConditionalTrait.cs" />
     <Compile Include="Traits\Conditions\ProximityExternalCondition.cs" />
     <Compile Include="Traits\Conditions\GrantConditionOnDamageState.cs" />
     <Compile Include="Traits\Conditions\GrantConditionOnTerrain.cs" />
     <Compile Include="Traits\Conditions\GrantConditionOnMovement.cs" />
+    <Compile Include="Traits\Conditions\GrantConditionOnPrerequisite.cs" />
     <Compile Include="Traits\Conditions\ConditionManager.cs" />
     <Compile Include="Traits\Valued.cs" />
     <Compile Include="Traits\Voiced.cs" />
@@ -614,12 +618,11 @@
     <Compile Include="Widgets\Logic\Ingame\SupportPowerBinLogic.cs" />
     <Compile Include="Widgets\Logic\Ingame\SupportPowerTooltipLogic.cs" />
     <Compile Include="Widgets\Logic\Ingame\WorldTooltipLogic.cs" />
-    <Compile Include="Widgets\Logic\Installation\InstallModLogic.cs" />
     <Compile Include="Widgets\Logic\Lobby\ClientTooltipLogic.cs" />
     <Compile Include="Widgets\Logic\Lobby\KickClientLogic.cs" />
     <Compile Include="Widgets\Logic\Lobby\KickSpectatorsLogic.cs" />
     <Compile Include="Widgets\Logic\Lobby\LobbyLogic.cs" />
-    <Compile Include="Widgets\Logic\Lobby\LobbyMapPreviewLogic.cs" />
+    <Compile Include="Widgets\Logic\Lobby\MapPreviewLogic.cs" />
     <Compile Include="Widgets\Logic\Lobby\LobbyUtils.cs" />
     <Compile Include="Widgets\Logic\Lobby\SpawnSelectorTooltipLogic.cs" />
     <Compile Include="Widgets\Logic\MainMenuLogic.cs" />
@@ -632,7 +635,6 @@
     <Compile Include="Widgets\Logic\Editor\TileSelectorLogic.cs" />
     <Compile Include="Widgets\Logic\MapChooserLogic.cs" />
     <Compile Include="Widgets\Logic\MissionBrowserLogic.cs" />
-    <Compile Include="Widgets\Logic\ModBrowserLogic.cs" />
     <Compile Include="Widgets\Logic\MusicPlayerLogic.cs" />
     <Compile Include="Widgets\Logic\PerfDebugLogic.cs" />
     <Compile Include="Widgets\Logic\ReplayBrowserLogic.cs" />
@@ -788,6 +790,7 @@
     <Compile Include="UtilityCommands\Utilities.cs" />
     <Compile Include="UtilityCommands\OutputResolvedSequencesCommand.cs" />
     <Compile Include="UtilityCommands\OutputResolvedWeaponsCommand.cs" />
+    <Compile Include="Traits\RevealOnDeath.cs" />
     <Compile Include="Traits\RevealOnFire.cs" />
     <Compile Include="Traits\Conditions\GrantConditionOnDisabled.cs" />
     <Compile Include="Traits\World\ActorMap.cs" />
@@ -800,6 +803,11 @@
     <Compile Include="Traits\Attack\AttackCharges.cs" />
     <Compile Include="Traits\Render\WithChargeAnimation.cs" />
     <Compile Include="Traits\Render\WithChargeOverlay.cs" />
+    <Compile Include="WebServices.cs" />
+    <Compile Include="Traits\Conditions\GrantConditionOnLineBuildDirection.cs" />
+    <Compile Include="Traits\Conditions\LineBuildSegmentExternalCondition.cs" />
+    <Compile Include="Traits\EntersTunnels.cs" />
+    <Compile Include="Traits\TunnelEntrance.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="AfterBuild">

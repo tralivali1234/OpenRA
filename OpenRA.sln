@@ -102,12 +102,40 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Dune 2000 Lua scripts", "Du
 	ProjectSection(SolutionItems) = preProject
 		mods\d2k\maps\atreides-01a\atreides01a.lua = mods\d2k\maps\atreides-01a\atreides01a.lua
 		mods\d2k\maps\atreides-01b\atreides01b.lua = mods\d2k\maps\atreides-01b\atreides01b.lua
+		mods\d2k\maps\atreides-02a\atreides02a-AI.lua = mods\d2k\maps\atreides-02a\atreides02a-AI.lua
 		mods\d2k\maps\atreides-02a\atreides02a.lua = mods\d2k\maps\atreides-02a\atreides02a.lua
+		mods\d2k\maps\atreides-02b\atreides02b-AI.lua = mods\d2k\maps\atreides-02b\atreides02b-AI.lua
 		mods\d2k\maps\atreides-02b\atreides02b.lua = mods\d2k\maps\atreides-02b\atreides02b.lua
 		mods\d2k\maps\atreides-03a\atreides03a-AI.lua = mods\d2k\maps\atreides-03a\atreides03a-AI.lua
 		mods\d2k\maps\atreides-03a\atreides03a.lua = mods\d2k\maps\atreides-03a\atreides03a.lua
 		mods\d2k\maps\atreides-03b\atreides03b-AI.lua = mods\d2k\maps\atreides-03b\atreides03b-AI.lua
 		mods\d2k\maps\atreides-03b\atreides03b.lua = mods\d2k\maps\atreides-03b\atreides03b.lua
+		mods\d2k\maps\atreides-04\atreides04-AI.lua = mods\d2k\maps\atreides-04\atreides04-AI.lua
+		mods\d2k\maps\atreides-04\atreides04.lua = mods\d2k\maps\atreides-04\atreides04.lua
+		mods\d2k\maps\atreides-05\atreides05-AI.lua = mods\d2k\maps\atreides-05\atreides05-AI.lua
+		mods\d2k\maps\atreides-05\atreides05.lua = mods\d2k\maps\atreides-05\atreides05.lua
+		mods\d2k\maps\harkonnen-01a\harkonnen01a.lua = mods\d2k\maps\harkonnen-01a\harkonnen01a.lua
+		mods\d2k\maps\harkonnen-01b\harkonnen01b.lua = mods\d2k\maps\harkonnen-01b\harkonnen01b.lua
+		mods\d2k\maps\harkonnen-02a\harkonnen02a-AI.lua = mods\d2k\maps\harkonnen-02a\harkonnen02a-AI.lua
+		mods\d2k\maps\harkonnen-02a\harkonnen02a.lua = mods\d2k\maps\harkonnen-02a\harkonnen02a.lua
+		mods\d2k\maps\harkonnen-02b\harkonnen02b-AI.lua = mods\d2k\maps\harkonnen-02b\harkonnen02b-AI.lua
+		mods\d2k\maps\harkonnen-02b\harkonnen02b.lua = mods\d2k\maps\harkonnen-02b\harkonnen02b.lua
+		mods\d2k\maps\harkonnen-03a\harkonnen03a-AI.lua = mods\d2k\maps\harkonnen-03a\harkonnen03a-AI.lua
+		mods\d2k\maps\harkonnen-03a\harkonnen03a.lua = mods\d2k\maps\harkonnen-03a\harkonnen03a.lua
+		mods\d2k\maps\harkonnen-03b\harkonnen03b-AI.lua = mods\d2k\maps\harkonnen-03b\harkonnen03b-AI.lua
+		mods\d2k\maps\harkonnen-03b\harkonnen03b.lua = mods\d2k\maps\harkonnen-03b\harkonnen03b.lua
+		mods\d2k\maps\ordos-01a\ordos01a.lua = mods\d2k\maps\ordos-01a\ordos01a.lua
+		mods\d2k\maps\ordos-01b\ordos01b.lua = mods\d2k\maps\ordos-01b\ordos01b.lua
+		mods\d2k\maps\ordos-02a\ordos02a.lua = mods\d2k\maps\ordos-02a\ordos02a.lua
+		mods\d2k\maps\ordos-02a\ordos02a-AI.lua = mods\d2k\maps\ordos-02a\ordos02a-AI.lua
+		mods\d2k\maps\ordos-02b\ordos02b.lua = mods\d2k\maps\ordos-02b\ordos02b.lua
+		mods\d2k\maps\ordos-02b\ordos02b-AI.lua = mods\d2k\maps\ordos-02b\ordos02b-AI.lua
+		mods\d2k\maps\ordos-03a\ordos03a.lua = mods\d2k\maps\ordos-03a\ordos03a.lua
+		mods\d2k\maps\ordos-03a\ordos03a-AI.lua = mods\d2k\maps\ordos-03a\ordos03a-AI.lua
+		mods\d2k\maps\ordos-03b\ordos03b.lua = mods\d2k\maps\ordos-03b\ordos03b.lua
+		mods\d2k\maps\ordos-03b\ordos03b-AI.lua = mods\d2k\maps\ordos-03b\ordos03b-AI.lua
+		mods\d2k\maps\ordos-04\ordos04.lua = mods\d2k\maps\ordos-04\ordos04.lua
+		mods\d2k\maps\ordos-04\ordos04-AI.lua = mods\d2k\maps\ordos-04\ordos04-AI.lua
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "System Lua scripts", "System Lua scripts", "{A4D6AEA4-8009-4256-903B-8D227E50452B}"
@@ -116,8 +144,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "System Lua scripts", "Syste
 		lua\scriptwrapper.lua = lua\scriptwrapper.lua
 		lua\stacktraceplus.lua = lua\stacktraceplus.lua
 	EndProjectSection
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenRA.GameMonitor", "OpenRA.GameMonitor\OpenRA.GameMonitor.csproj", "{68295755-7902-4602-AC2C-9A8AC36D5EF7}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenRA.Test", "OpenRA.Test\OpenRA.Test.csproj", "{6CB8E1B7-6B36-4D93-8633-7C573E194AC4}"
 EndProject

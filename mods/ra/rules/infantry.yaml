@@ -228,7 +228,7 @@ SPY:
 	Valued:
 		Cost: 500
 	-Tooltip:
-	DisguiseToolTip:
+	DisguiseTooltip:
 		Name: Spy
 		GenericName: Soldier
 	-Guard:
@@ -249,7 +249,7 @@ SPY:
 		ScanRadius: 5
 	-WithInfantryBody:
 	WithDisguisingInfantryBody:
-		AttackSequence: shoot
+		DefaultAttackSequence: shoot
 		IdleSequences: idle1,idle2
 		StandSequences: stand,stand2
 	WithDecoration@disguise:
@@ -278,7 +278,7 @@ SPY.England:
 		Cost: 250
 	GivesExperience:
 		Experience: 500
-	DisguiseToolTip:
+	DisguiseTooltip:
 		Name: British Spy
 	RenderSprites:
 		Image: spy
@@ -508,6 +508,10 @@ HIJACKER:
 		UncloakOn: Attack, Unload, Infiltrate, Demolish, Move
 		CloakTypes: Cloak, Hijacker
 		IsPlayerPalette: true
+		RequiresCondition: !cloak-force-disabled
+	GrantConditionOnDamageState@UNCLOAK:
+		Condition: cloak-force-disabled
+		ValidDamageStates: Critical
 	Mobile:
 		Speed: 85
 
@@ -589,6 +593,10 @@ SNIPER:
 		UncloakSound:
 		UncloakOn: Attack, Unload, Infiltrate, Demolish, Move
 		IsPlayerPalette: true
+		RequiresCondition: !cloak-force-disabled
+	GrantConditionOnDamageState@UNCLOAK:
+		Condition: cloak-force-disabled
+		ValidDamageStates: Critical
 	DetectCloaked:
 		CloakTypes: Cloak, Hijacker
 		Range: 6c0
