@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -28,6 +28,7 @@ namespace OpenRA
 	{
 		public static readonly MapPreview UnknownMap = new MapPreview(null, null, MapGridType.Rectangular, null);
 		public readonly IReadOnlyDictionary<IReadOnlyPackage, MapClassification> MapLocations;
+		readonly Dictionary<IReadOnlyPackage, MapClassification> mapLocations = new Dictionary<IReadOnlyPackage, MapClassification>();
 
 		readonly Cache<string, MapPreview> previews;
 		readonly ModData modData;
@@ -45,8 +46,16 @@ namespace OpenRA
 			previews = new Cache<string, MapPreview>(uid => new MapPreview(modData, uid, gridType.Value, this));
 			sheetBuilder = new SheetBuilder(SheetType.BGRA);
 
+			MapLocations = new ReadOnlyDictionary<IReadOnlyPackage, MapClassification>(mapLocations);
+		}
+
+		public void LoadMaps()
+		{
+			// Utility mod that does not support maps
+			if (!modData.Manifest.Contains<MapGrid>())
+				return;
+
 			// Enumerate map directories
-			var mapLocations = new Dictionary<IReadOnlyPackage, MapClassification>();
 			foreach (var kv in modData.Manifest.MapFolders)
 			{
 				var name = kv.Key;
@@ -54,12 +63,21 @@ namespace OpenRA
 					? MapClassification.Unknown : Enum<MapClassification>.Parse(kv.Value);
 
 				IReadOnlyPackage package;
-				var optional = name.StartsWith("~");
+				var optional = name.StartsWith("~", StringComparison.Ordinal);
 				if (optional)
 					name = name.Substring(1);
 
 				try
 				{
+					// HACK: If the path is inside the the support directory then we may need to create it
+					if (Platform.IsPathRelativeToSupportDirectory(name))
+					{
+						// Assume that the path is a directory if there is not an existing file with the same name
+						var resolved = Platform.ResolvePath(name);
+						if (!File.Exists(resolved))
+							Directory.CreateDirectory(resolved);
+					}
+
 					package = modData.ModFiles.OpenPackage(name);
 				}
 				catch
@@ -73,15 +91,6 @@ namespace OpenRA
 				mapLocations.Add(package, classification);
 			}
 
-			MapLocations = new ReadOnlyDictionary<IReadOnlyPackage, MapClassification>(mapLocations);
-		}
-
-		public void LoadMaps()
-		{
-			// Utility mod that does not support maps
-			if (!modData.Manifest.Contains<MapGrid>())
-				return;
-
 			var mapGrid = modData.Manifest.Get<MapGrid>();
 			foreach (var kv in MapLocations)
 			{
@@ -92,7 +101,7 @@ namespace OpenRA
 					{
 						using (new Support.PerfTimer(map))
 						{
-							mapPackage = modData.ModFiles.OpenPackage(map, kv.Key);
+							mapPackage = kv.Key.OpenPackage(map, modData.ModFiles);
 							if (mapPackage == null)
 								continue;
 
@@ -111,6 +120,53 @@ namespace OpenRA
 					}
 				}
 			}
+		}
+
+		public IEnumerable<IReadWritePackage> EnumerateMapPackagesWithoutCaching(MapClassification classification = MapClassification.System)
+		{
+			// Utility mod that does not support maps
+			if (!modData.Manifest.Contains<MapGrid>())
+				yield break;
+
+			// Enumerate map directories
+			foreach (var kv in modData.Manifest.MapFolders)
+			{
+				MapClassification packageClassification;
+				if (!Enum.TryParse(kv.Value, out packageClassification))
+					continue;
+
+				if (!classification.HasFlag(packageClassification))
+					continue;
+
+				var name = kv.Key;
+				var optional = name.StartsWith("~", StringComparison.Ordinal);
+				if (optional)
+					name = name.Substring(1);
+
+				// Don't try to open the map directory in the support directory if it doesn't exist
+				if (Platform.IsPathRelativeToSupportDirectory(name))
+				{
+					var resolved = Platform.ResolvePath(name);
+					if (!Directory.Exists(resolved) || !File.Exists(resolved))
+						continue;
+				}
+
+				using (var package = (IReadWritePackage)modData.ModFiles.OpenPackage(name))
+				{
+					foreach (var map in package.Contents)
+					{
+						var mapPackage = package.OpenPackage(map, modData.ModFiles) as IReadWritePackage;
+						if (mapPackage != null)
+							yield return mapPackage;
+					}
+				}
+			}
+		}
+
+		public IEnumerable<Map> EnumerateMapsWithoutCaching(MapClassification classification = MapClassification.System)
+		{
+			foreach (var mapPackage in EnumerateMapPackagesWithoutCaching(classification))
+				yield return new Map(modData, mapPackage);
 		}
 
 		public void QueryRemoteMapDetails(string repositoryUrl, IEnumerable<string> uids, Action<MapPreview> mapDetailsReceived = null, Action queryFailed = null)
@@ -149,6 +205,10 @@ namespace OpenRA
 					var yaml = MiniYaml.FromString(data);
 					foreach (var kv in yaml)
 						maps[kv.Key].UpdateRemoteSearch(MapStatus.DownloadAvailable, kv.Value, mapDetailsReceived);
+
+					foreach (var map in maps)
+						if (map.Value.Status != MapStatus.DownloadAvailable)
+							map.Value.UpdateRemoteSearch(MapStatus.Unavailable, null);
 				}
 				catch (Exception e)
 				{
@@ -173,7 +233,7 @@ namespace OpenRA
 			var maxKeepAlive = 5000 / emptyDelay;
 			var keepAlive = maxKeepAlive;
 
-			for (;;)
+			while (true)
 			{
 				List<MapPreview> todo;
 				lock (syncRoot)
@@ -220,13 +280,8 @@ namespace OpenRA
 				}
 			}
 
-			// The buffer is not fully reclaimed until changes are written out to the texture.
-			// We will access the texture in order to force changes to be written out, allowing the buffer to be freed.
-			Game.RunAfterTick(() =>
-			{
-				sheetBuilder.Current.ReleaseBuffer();
-				sheetBuilder.Current.GetTexture();
-			});
+			// Release the buffer by forcing changes to be written out to the texture, allowing the buffer to be reclaimed by GC.
+			Game.RunAfterTick(sheetBuilder.Current.ReleaseBuffer);
 			Log.Write("debug", "MapCache.LoadAsyncInternal ended");
 		}
 
@@ -281,8 +336,8 @@ namespace OpenRA
 			if (string.IsNullOrEmpty(initialUid) || previews[initialUid].Status != MapStatus.Available)
 			{
 				var selected = previews.Values.Where(IsSuitableInitialMap).RandomOrDefault(random) ??
-					previews.Values.First(m => m.Status == MapStatus.Available && m.Visibility.HasFlag(MapVisibility.Lobby));
-				return selected.Uid;
+					previews.Values.FirstOrDefault(m => m.Status == MapStatus.Available && m.Visibility.HasFlag(MapVisibility.Lobby));
+				return selected == null ? string.Empty : selected.Uid;
 			}
 
 			return initialUid;

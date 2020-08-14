@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -11,6 +11,7 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using OpenRA.Primitives;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
@@ -62,13 +63,13 @@ namespace OpenRA.Mods.Common.Traits
 			cachedVRange = WDist.Zero;
 		}
 
-		public void AddedToWorld(Actor self)
+		void INotifyAddedToWorld.AddedToWorld(Actor self)
 		{
 			cachedPosition = self.CenterPosition;
 			proximityTrigger = self.World.ActorMap.AddProximityTrigger(cachedPosition, cachedRange, cachedVRange, ActorEntered, ActorExited);
 		}
 
-		public void RemovedFromWorld(Actor self)
+		void INotifyRemovedFromWorld.RemovedFromWorld(Actor self)
 		{
 			self.World.ActorMap.RemoveProximityTrigger(proximityTrigger);
 		}
@@ -87,7 +88,7 @@ namespace OpenRA.Mods.Common.Traits
 			desiredVRange = WDist.Zero;
 		}
 
-		public void Tick(Actor self)
+		void ITick.Tick(Actor self)
 		{
 			if (self.CenterPosition != cachedPosition || desiredRange != cachedRange || desiredVRange != cachedVRange)
 			{
@@ -120,7 +121,7 @@ namespace OpenRA.Mods.Common.Traits
 				tokens[a] = external.GrantCondition(a, self);
 		}
 
-		public void UnitProducedByOther(Actor self, Actor producer, Actor produced)
+		public void UnitProducedByOther(Actor self, Actor producer, Actor produced, string productionType, TypeDictionary init)
 		{
 			// If the produced Actor doesn't occupy space, it can't be in range
 			if (produced.OccupiesSpace == null)
@@ -156,7 +157,8 @@ namespace OpenRA.Mods.Common.Traits
 
 			tokens.Remove(a);
 			foreach (var external in a.TraitsImplementing<ExternalCondition>())
-				external.TryRevokeCondition(a, self, token);
+				if (external.TryRevokeCondition(a, self, token))
+					break;
 		}
 	}
 }

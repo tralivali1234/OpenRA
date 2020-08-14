@@ -2,12 +2,13 @@
 	ReloadDelay: 80
 	Range: 2c849
 	Report: healer1.aud
-	ValidTargets: Infantry
+	ValidTargets: Heal
+	TargetActorCenter: true
 	Projectile: InstantHit
 	Warhead@1Dam: TargetDamage
 		DebugOverlayColor: 00FF00
-		Damage: -50
-		ValidTargets: Infantry
+		Damage: -5000
+		ValidTargets: Heal
 
 Heal:
 	Inherits: ^HealWeapon

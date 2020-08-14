@@ -22,12 +22,12 @@ crate:
 		SelectionShares: 5
 	HideMapCrateAction:
 		SelectionShares: 5
-		Effect: hide-map
+		Sequence: hide-map
 	LevelUpCrateAction:
 		SelectionShares: 40
 	RevealMapCrateAction:
 		SelectionShares: 2
-		Effect: reveal-map
+		Sequence: reveal-map
 	GiveUnitCrateAction@LightInfantry:
 		SelectionShares: 15
 		Units: light_inf, light_inf, light_inf, light_inf, light_inf
@@ -134,10 +134,13 @@ crate:
 		Palette: effect
 	WithCrateBody:
 	Passenger:
-	CustomSelectionSize:
-		CustomBounds: 20,20
+	MapEditorData:
+		Categories: System
+	Interactable:
+		Bounds: 20,20
 
 mpspawn:
+	Interactable:
 	EditorOnlyTooltip:
 		Name: (multiplayer player starting point)
 	AlwaysVisible:
@@ -147,8 +150,13 @@ mpspawn:
 	WithSpriteBody:
 	BodyOrientation:
 		QuantizedFacings: 1
+	MapEditorData:
+		Categories: System
+	RequiresSpecificOwners:
+		ValidOwnerNames: Neutral
 
 waypoint:
+	Interactable:
 	EditorOnlyTooltip:
 		Name: (waypoint for scripted behavior)
 	AlwaysVisible:
@@ -158,16 +166,21 @@ waypoint:
 	WithSpriteBody:
 	BodyOrientation:
 		QuantizedFacings: 1
+	MapEditorData:
+		Categories: System
 
-^carryall.colorpicker:
+carryall.colorpicker:
 	Inherits: carryall
 	Aircraft:
-		InitialFacing: 104
+		InitialFacing: 416
+	-Buildable:
+	-MapEditorData:
 	RenderSprites:
 		Image: carryall
 		Palette: colorpicker
 
 camera:
+	Interactable:
 	EditorOnlyTooltip:
 		Name: (reveals area to owner)
 	AlwaysVisible:
@@ -180,8 +193,11 @@ camera:
 	RevealsShroud:
 		Range: 6c768
 		Type: CenterPosition
+	MapEditorData:
+		Categories: System
 
 wormspawner:
+	Interactable:
 	EditorOnlyTooltip:
 		Name: (worm spawning location)
 	AlwaysVisible:
@@ -191,10 +207,14 @@ wormspawner:
 	WithSpriteBody:
 	BodyOrientation:
 		QuantizedFacings: 1
-	WormSpawner:
+	ActorSpawner:
+	MapEditorData:
+		Categories: System
 
 upgrade.conyard:
 	AlwaysVisible:
+	Interactable:
+	ScriptTriggers:
 	Tooltip:
 		Name: Construction Yard Upgrade
 	Buildable:
@@ -202,21 +222,24 @@ upgrade.conyard:
 		Prerequisites: construction_yard
 		Queue: Upgrade
 		BuildLimit: 1
-		BuildDuration: 590
-		BuildDurationModifier: 40
+		BuildDuration: 625
+		BuildDurationModifier: 100
 		Description: Unlocks additional construction options \n(Large Concrete Slab, Rocket Turret)
 	Valued:
 		Cost: 1000
 	RenderSprites:
-		Image: conyard.harkonnen
+		Image: conyard.ordos
 		FactionImages:
 			atreides: conyard.atreides
-			ordos: conyard.ordos
-			corrino: conyard.corrino
+			fremen: conyard.atreides
+			harkonnen: conyard.harkonnen
+			corrino: conyard.harkonnen
 	ProvidesPrerequisite@upgradename:
 
 upgrade.barracks:
 	AlwaysVisible:
+	Interactable:
+	ScriptTriggers:
 	Tooltip:
 		Name: Barracks Upgrade
 	Buildable:
@@ -224,22 +247,24 @@ upgrade.barracks:
 		Prerequisites: barracks
 		Queue: Upgrade
 		BuildLimit: 1
-		BuildDuration: 290
-		BuildDurationModifier: 40
+		BuildDuration: 208
+		BuildDurationModifier: 100
 		Description: Unlocks additional infantry \n(Trooper, Engineer, Thumper Infantry)    \n\nRequired to unlock faction specific infantry \n(Atreides: Grenadier, Harkonnen: Sardaukar)
 	Valued:
 		Cost: 500
 	RenderSprites:
-		Image: barracks.harkonnen
+		Image: barracks.ordos
 		FactionImages:
 			atreides: barracks.atreides
-			ordos: barracks.ordos
-			mercenary: barracks.ordos
-			smuggler: barracks.ordos
+			fremen: barracks.atreides
+			harkonnen: barracks.harkonnen
+			corrino: barracks.harkonnen
 	ProvidesPrerequisite@upgradename:
 
 upgrade.light:
 	AlwaysVisible:
+	Interactable:
+	ScriptTriggers:
 	Tooltip:
 		Name: Light Factory Upgrade
 	Buildable:
@@ -247,22 +272,24 @@ upgrade.light:
 		Prerequisites: light_factory
 		Queue: Upgrade
 		BuildLimit: 1
-		BuildDuration: 215
-		BuildDurationModifier: 40
+		BuildDuration: 268
+		BuildDurationModifier: 100
 		Description: Unlocks additional light unit \n(Missile Quad) \n\nRequired to unlock faction specific light unit \n(Ordos: Stealth Raider Trike)
 	Valued:
 		Cost: 400
 	RenderSprites:
-		Image: light.harkonnen
+		Image: light.ordos
 		FactionImages:
 			atreides: light.atreides
-			ordos: light.ordos
-			mercenary: light.ordos
-			smuggler: light.ordos
+			fremen: light.atreides
+			harkonnen: light.harkonnen
+			corrino: light.harkonnen
 	ProvidesPrerequisite@upgradename:
 
 upgrade.heavy:
 	AlwaysVisible:
+	Interactable:
+	ScriptTriggers:
 	Tooltip:
 		Name: Heavy Factory Upgrade
 	Buildable:
@@ -270,22 +297,25 @@ upgrade.heavy:
 		Prerequisites: heavy_factory
 		Queue: Upgrade
 		BuildLimit: 1
-		BuildDuration: 380
-		BuildDurationModifier: 40
+		BuildDuration: 468
+		BuildDurationModifier: 100
 		Description: Unlocks additional construction options    \n(Repair Pad, IX Research Center) \n\nUnlocks additional heavy units \n(Siege Tank, Missile Tank, MCV)
 	Valued:
 		Cost: 800
 	RenderSprites:
-		Image: heavy.harkonnen
+		Image: heavy.ordos
 		FactionImages:
 			atreides: heavy.atreides
-			ordos: heavy.ordos
+			fremen: heavy.atreides
+			harkonnen: heavy.harkonnen
+			corrino: heavy.harkonnen
 			mercenary: heavy.mercenary
-			smuggler: heavy.ordos
 	ProvidesPrerequisite@upgradename:
 
 upgrade.hightech:
 	AlwaysVisible:
+	Interactable:
+	ScriptTriggers:
 	Tooltip:
 		Name: High Tech Factory Upgrade
 	Buildable:
@@ -293,8 +323,8 @@ upgrade.hightech:
 		Prerequisites: ~hightech.atreides, ~techlevel.superweapons
 		Queue: Upgrade
 		BuildLimit: 1
-		BuildDuration: 720
-		BuildDurationModifier: 40
+		BuildDuration: 937
+		BuildDurationModifier: 100
 		Description: Unlocks the Atreides Air Strike superweapon
 	Valued:
 		Cost: 1500

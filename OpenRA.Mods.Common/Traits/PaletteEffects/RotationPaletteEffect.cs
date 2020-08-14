@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,14 +10,13 @@
 #endregion
 
 using System.Collections.Generic;
-using System.Linq;
 using OpenRA.Graphics;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("Palette effect used for sprinkle \"animations\".")]
-	class RotationPaletteEffectInfo : ITraitInfo
+	class RotationPaletteEffectInfo : TraitInfo
 	{
 		[Desc("Defines to which palettes this effect should be applied to.",
 			"If none specified, it applies to all palettes not explicitly excluded.")]
@@ -42,7 +41,7 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Step towards next color index per tick.")]
 		public readonly float RotationStep = .25f;
 
-		public object Create(ActorInitializer init) { return new RotationPaletteEffect(init.World, this); }
+		public override object Create(ActorInitializer init) { return new RotationPaletteEffect(init.World, this); }
 	}
 
 	class RotationPaletteEffect : ITick, IPaletteModifier
@@ -73,7 +72,7 @@ namespace OpenRA.Mods.Common.Traits
 			return info.Tilesets.Contains(tilesetId) && !info.ExcludeTilesets.Contains(tilesetId);
 		}
 
-		public void Tick(Actor self)
+		void ITick.Tick(Actor self)
 		{
 			if (!validTileset)
 				return;
@@ -92,8 +91,8 @@ namespace OpenRA.Mods.Common.Traits
 
 			foreach (var kvp in palettes)
 			{
-				if ((info.Palettes.Count > 0 && !AnyPaletteNameStartsWith(info.Palettes, kvp.Key))
-					|| (info.ExcludePalettes.Count > 0 && AnyPaletteNameStartsWith(info.ExcludePalettes, kvp.Key)))
+				if ((info.Palettes.Count > 0 && !StartsWithAny(kvp.Key, info.Palettes))
+					|| (info.ExcludePalettes.Count > 0 && StartsWithAny(kvp.Key, info.ExcludePalettes)))
 					continue;
 
 				var palette = kvp.Value;
@@ -106,11 +105,11 @@ namespace OpenRA.Mods.Common.Traits
 			}
 		}
 
-		static bool AnyPaletteNameStartsWith(HashSet<string> names, string prefix)
+		static bool StartsWithAny(string name, HashSet<string> prefixes)
 		{
 			// PERF: Avoid LINQ.
-			foreach (var name in names)
-				if (name.StartsWith(prefix))
+			foreach (var pref in prefixes)
+				if (name.StartsWith(pref))
 					return true;
 
 			return false;

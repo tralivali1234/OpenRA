@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,7 +10,6 @@
 #endregion
 
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
 using OpenRA.Mods.Common.Traits;
 using OpenRA.Traits;
@@ -21,9 +20,6 @@ namespace OpenRA.Mods.Common
 	{
 		public static bool IsAtGroundLevel(this Actor self)
 		{
-			if (self.IsDead)
-				return false;
-
 			if (self.OccupiesSpace == null)
 				return false;
 
@@ -62,47 +58,6 @@ namespace OpenRA.Mods.Common
 			return stance == Stance.Enemy;
 		}
 
-		public static Target ResolveFrozenActorOrder(this Actor self, Order order, Color targetLine)
-		{
-			// Not targeting a frozen actor
-			if (order.ExtraData == 0)
-				return Target.FromOrder(self.World, order);
-
-			// Targeted an actor under the fog
-			var frozenLayer = self.Owner.PlayerActor.TraitOrDefault<FrozenActorLayer>();
-			if (frozenLayer == null)
-				return Target.Invalid;
-
-			var frozen = frozenLayer.FromID(order.ExtraData);
-			if (frozen == null)
-				return Target.Invalid;
-
-			// Flashes the frozen proxy
-			self.SetTargetLine(frozen, targetLine, true);
-
-			// Target is still alive - resolve the real order
-			if (frozen.Actor != null && frozen.Actor.IsInWorld)
-				return Target.FromActor(frozen.Actor);
-
-			if (!order.Queued)
-				self.CancelActivity();
-
-			var move = self.TraitOrDefault<IMove>();
-			if (move != null)
-			{
-				// Move within sight range of the frozen actor
-				var range = self.TraitsImplementing<RevealsShroud>()
-					.Where(s => !s.IsTraitDisabled)
-					.Select(s => s.Range)
-					.Append(WDist.FromCells(2))
-					.Max();
-
-				self.QueueActivity(move.MoveWithinRange(Target.FromPos(frozen.CenterPosition), range));
-			}
-
-			return Target.Invalid;
-		}
-
 		public static void NotifyBlocker(this Actor self, IEnumerable<Actor> blockers)
 		{
 			foreach (var blocker in blockers)
@@ -120,32 +75,6 @@ namespace OpenRA.Mods.Common
 		public static void NotifyBlocker(this Actor self, IEnumerable<CPos> positions)
 		{
 			NotifyBlocker(self, positions.SelectMany(p => self.World.ActorMap.GetActorsAt(p)));
-		}
-
-		public static bool CanHarvestAt(this Actor self, CPos pos, ResourceLayer resLayer, HarvesterInfo harvInfo,
-			ResourceClaimLayer territory)
-		{
-			// Resources only exist in the ground layer
-			if (pos.Layer != 0)
-				return false;
-
-			var resType = resLayer.GetResource(pos);
-			if (resType == null)
-				return false;
-
-			// Can the harvester collect this kind of resource?
-			if (!harvInfo.Resources.Contains(resType.Info.Type))
-				return false;
-
-			if (territory != null)
-			{
-				// Another harvester has claimed this resource:
-				ResourceClaim claim;
-				if (territory.IsClaimedByAnyoneElse(self as Actor, pos, out claim))
-					return false;
-			}
-
-			return true;
 		}
 
 		public static CPos ClosestCell(this Actor self, IEnumerable<CPos> cells)

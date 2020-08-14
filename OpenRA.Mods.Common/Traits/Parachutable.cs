@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -12,29 +12,41 @@
 using System.Collections.Generic;
 using System.Linq;
 using OpenRA.Mods.Common.Effects;
+using OpenRA.Primitives;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("Can be paradropped by a ParaDrop actor.")]
-	public class ParachutableInfo : ITraitInfo, Requires<IPositionableInfo>
+	public class ParachutableInfo : TraitInfo, Requires<IPositionableInfo>
 	{
 		[Desc("If we land on invalid terrain for my actor type should we be killed?")]
 		public readonly bool KilledOnImpassableTerrain = true;
 
+		[Desc("Types of damage that this trait causes to self when 'KilledOnImpassableTerrain' is true. Leave empty for no damage types.")]
+		public readonly BitSet<DamageType> DamageTypes = default(BitSet<DamageType>);
+
 		[Desc("Image where Ground/WaterCorpseSequence is looked up.")]
 		public readonly string Image = "explosion";
 
-		public readonly string GroundImpactSound = null;
-		[SequenceReference("Image")] public readonly string GroundCorpseSequence = "corpse";
-		[PaletteReference] public readonly string GroundCorpsePalette = "effect";
+		[SequenceReference("Image")]
+		public readonly string GroundCorpseSequence = null;
 
-		public readonly string WaterImpactSound = null;
-		[SequenceReference("Image")] public readonly string WaterCorpseSequence = null;
-		[PaletteReference] public readonly string WaterCorpsePalette = "effect";
+		[PaletteReference]
+		public readonly string GroundCorpsePalette = "effect";
+
+		public readonly string GroundImpactSound = null;
+
+		[SequenceReference("Image")]
+		public readonly string WaterCorpseSequence = null;
+
+		[PaletteReference]
+		public readonly string WaterCorpsePalette = "effect";
 
 		[Desc("Terrain types on which to display WaterCorpseSequence.")]
 		public readonly HashSet<string> WaterTerrainTypes = new HashSet<string> { "Water" };
+
+		public readonly string WaterImpactSound = null;
 
 		public readonly int FallRate = 13;
 
@@ -42,16 +54,17 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("The condition to grant to self while parachuting.")]
 		public readonly string ParachutingCondition = null;
 
-		public object Create(ActorInitializer init) { return new Parachutable(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new Parachutable(init.Self, this); }
 	}
 
-	class Parachutable : INotifyCreated, INotifyParachute
+	public class Parachutable : INotifyParachute
 	{
 		readonly ParachutableInfo info;
 		readonly IPositionable positionable;
 
-		ConditionManager conditionManager;
-		int parachutingToken = ConditionManager.InvalidConditionToken;
+		public Actor IgnoreActor;
+
+		int parachutingToken = Actor.InvalidConditionToken;
 
 		public Parachutable(Actor self, ParachutableInfo info)
 		{
@@ -59,21 +72,24 @@ namespace OpenRA.Mods.Common.Traits
 			positionable = self.Trait<IPositionable>();
 		}
 
-		void INotifyCreated.Created(Actor self)
-		{
-			conditionManager = self.TraitOrDefault<ConditionManager>();
-		}
+		public bool IsInAir { get; private set; }
 
 		void INotifyParachute.OnParachute(Actor self)
 		{
-			if (conditionManager != null && parachutingToken == ConditionManager.InvalidConditionToken && !string.IsNullOrEmpty(info.ParachutingCondition))
-				parachutingToken = conditionManager.GrantCondition(self, info.ParachutingCondition);
+			IsInAir = true;
+
+			if (parachutingToken == Actor.InvalidConditionToken)
+				parachutingToken = self.GrantCondition(info.ParachutingCondition);
+
+			self.NotifyBlocker(self.Location);
 		}
 
-		void INotifyParachute.OnLanded(Actor self, Actor ignore)
+		void INotifyParachute.OnLanded(Actor self)
 		{
-			if (parachutingToken != ConditionManager.InvalidConditionToken)
-				parachutingToken = conditionManager.RevokeCondition(self, parachutingToken);
+			IsInAir = false;
+
+			if (parachutingToken != Actor.InvalidConditionToken)
+				parachutingToken = self.RevokeCondition(parachutingToken);
 
 			if (!info.KilledOnImpassableTerrain)
 				return;
@@ -82,20 +98,20 @@ namespace OpenRA.Mods.Common.Traits
 			if (positionable.CanEnterCell(cell, self))
 				return;
 
-			if (ignore != null && self.World.ActorMap.GetActorsAt(cell).Any(a => a != ignore))
+			if (IgnoreActor != null && !self.World.ActorMap.GetActorsAt(cell)
+				.Any(a => a != IgnoreActor && a != self && self.World.Map.DistanceAboveTerrain(a.CenterPosition) == WDist.Zero))
 				return;
 
 			var onWater = info.WaterTerrainTypes.Contains(self.World.Map.GetTerrainInfo(cell).Type);
-
 			var sound = onWater ? info.WaterImpactSound : info.GroundImpactSound;
 			Game.Sound.Play(SoundType.World, sound, self.CenterPosition);
 
 			var sequence = onWater ? info.WaterCorpseSequence : info.GroundCorpseSequence;
 			var palette = onWater ? info.WaterCorpsePalette : info.GroundCorpsePalette;
-			if (sequence != null && palette != null)
+			if (!string.IsNullOrEmpty(info.Image) && !string.IsNullOrEmpty(sequence) && palette != null)
 				self.World.AddFrameEndTask(w => w.Add(new SpriteEffect(self.OccupiesSpace.CenterPosition, w, info.Image, sequence, palette)));
 
-			self.Kill(self);
+			self.Kill(self, info.DamageTypes);
 		}
 	}
 }

@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,40 +10,51 @@
 #endregion
 
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
 using OpenRA.Graphics;
-using OpenRA.Mods.Cnc.Activities;
-using OpenRA.Mods.Common.Graphics;
+using OpenRA.Mods.Common.Orders;
 using OpenRA.Mods.Common.Traits;
+using OpenRA.Primitives;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Cnc.Traits
 {
 	class ChronoshiftPowerInfo : SupportPowerInfo
 	{
-		[Desc("Target actor selection radius in cells.")]
-		public readonly int Range = 1;
+		[FieldLoader.Require]
+		[Desc("Size of the footprint of the affected area.")]
+		public readonly CVec Dimensions = CVec.Zero;
 
-		[Desc("Seconds until returning after teleportation.")]
-		public readonly int Duration = 30;
+		[FieldLoader.Require]
+		[Desc("Actual footprint. Cells marked as x will be affected.")]
+		public readonly string Footprint = string.Empty;
 
-		[PaletteReference] public readonly string TargetOverlayPalette = TileSet.TerrainPaletteInternalName;
+		[Desc("Ticks until returning after teleportation.")]
+		public readonly int Duration = 750;
 
-		public readonly string OverlaySpriteGroup = "overlay";
-		[SequenceReference("OverlaySpriteGroup", true)] public readonly string ValidTileSequencePrefix = "target-valid-";
-		[SequenceReference("OverlaySpriteGroup")] public readonly string InvalidTileSequence = "target-invalid";
-		[SequenceReference("OverlaySpriteGroup")] public readonly string SourceTileSequence = "target-select";
+		[PaletteReference]
+		public readonly string TargetOverlayPalette = TileSet.TerrainPaletteInternalName;
+
+		public readonly string FootprintImage = "overlay";
+
+		[SequenceReference("FootprintImage", true)]
+		public readonly string ValidFootprintSequence = "target-valid";
+
+		[SequenceReference("FootprintImage")]
+		public readonly string InvalidFootprintSequence = "target-invalid";
+
+		[SequenceReference("FootprintImage")]
+		public readonly string SourceFootprintSequence = "target-select";
 
 		public readonly bool KillCargo = true;
 
-		[Desc("Cursor sequence to use when selecting targets for the chronoshift.")]
+		[Desc("Cursor to display when selecting targets for the chronoshift.")]
 		public readonly string SelectionCursor = "chrono-select";
 
-		[Desc("Cursor sequence to use when targeting an area for the chronoshift.")]
+		[Desc("Cursor to display when targeting an area for the chronoshift.")]
 		public readonly string TargetCursor = "chrono-target";
 
-		[Desc("Cursor sequence to use when the targeted area is blocked.")]
+		[Desc("Cursor to display when the targeted area is blocked.")]
 		public readonly string TargetBlockedCursor = "move-blocked";
 
 		public override object Create(ActorInitializer init) { return new ChronoshiftPower(init.Self, this); }
@@ -51,7 +62,15 @@ namespace OpenRA.Mods.Cnc.Traits
 
 	class ChronoshiftPower : SupportPower
 	{
-		public ChronoshiftPower(Actor self, ChronoshiftPowerInfo info) : base(self, info) { }
+		readonly char[] footprint;
+		readonly CVec dimensions;
+
+		public ChronoshiftPower(Actor self, ChronoshiftPowerInfo info)
+			: base(self, info)
+		{
+			footprint = info.Footprint.Where(c => !char.IsWhiteSpace(c)).ToArray();
+			dimensions = info.Dimensions;
+		}
 
 		public override void SelectTarget(Actor self, string order, SupportPowerManager manager)
 		{
@@ -62,28 +81,33 @@ namespace OpenRA.Mods.Cnc.Traits
 		public override void Activate(Actor self, Order order, SupportPowerManager manager)
 		{
 			base.Activate(self, order, manager);
+			PlayLaunchSounds();
 
+			var info = (ChronoshiftPowerInfo)Info;
+			var targetDelta = self.World.Map.CellContaining(order.Target.CenterPosition) - order.ExtraLocation;
 			foreach (var target in UnitsInRange(order.ExtraLocation))
 			{
-				var cs = target.Trait<Chronoshiftable>();
-				var targetCell = target.Location + (order.TargetLocation - order.ExtraLocation);
-				var cpi = Info as ChronoshiftPowerInfo;
+				var cs = target.TraitsImplementing<Chronoshiftable>()
+					.FirstEnabledTraitOrDefault();
+
+				if (cs == null)
+					continue;
+
+				var targetCell = target.Location + targetDelta;
 
 				if (self.Owner.Shroud.IsExplored(targetCell) && cs.CanChronoshiftTo(target, targetCell))
-					cs.Teleport(target, targetCell, cpi.Duration * 25, cpi.KillCargo, self);
+					cs.Teleport(target, targetCell, info.Duration, info.KillCargo, self);
 			}
 		}
 
 		public IEnumerable<Actor> UnitsInRange(CPos xy)
 		{
-			var range = ((ChronoshiftPowerInfo)Info).Range;
-			var tiles = Self.World.Map.FindTilesInCircle(xy, range);
+			var tiles = CellsMatching(xy, footprint, dimensions);
 			var units = new HashSet<Actor>();
 			foreach (var t in tiles)
 				units.UnionWith(Self.World.ActorMap.GetActorsAt(t));
 
-			return units.Where(a => a.Info.HasTraitInfo<ChronoshiftableInfo>() &&
-				!a.TraitsImplementing<IPreventsTeleport>().Any(condition => condition.PreventsTeleport(a)));
+			return units.Where(a => a.TraitsImplementing<Chronoshiftable>().Any(cs => !cs.IsTraitDisabled));
 		}
 
 		public bool SimilarTerrain(CPos xy, CPos sourceLocation)
@@ -91,9 +115,11 @@ namespace OpenRA.Mods.Cnc.Traits
 			if (!Self.Owner.Shroud.IsExplored(xy))
 				return false;
 
-			var range = ((ChronoshiftPowerInfo)Info).Range;
-			var sourceTiles = Self.World.Map.FindTilesInCircle(xy, range);
-			var destTiles = Self.World.Map.FindTilesInCircle(sourceLocation, range);
+			var sourceTiles = CellsMatching(xy, footprint, dimensions);
+			var destTiles = CellsMatching(sourceLocation, footprint, dimensions);
+
+			if (!sourceTiles.Any() || !destTiles.Any())
+				return false;
 
 			using (var se = sourceTiles.GetEnumerator())
 			using (var de = destTiles.GetEnumerator())
@@ -112,10 +138,11 @@ namespace OpenRA.Mods.Cnc.Traits
 			return true;
 		}
 
-		class SelectChronoshiftTarget : IOrderGenerator
+		class SelectChronoshiftTarget : OrderGenerator
 		{
 			readonly ChronoshiftPower power;
-			readonly int range;
+			readonly char[] footprint;
+			readonly CVec dimensions;
 			readonly Sprite tile;
 			readonly SupportPowerManager manager;
 			readonly string order;
@@ -131,11 +158,12 @@ namespace OpenRA.Mods.Cnc.Traits
 				this.power = power;
 
 				var info = (ChronoshiftPowerInfo)power.Info;
-				range = info.Range;
-				tile = world.Map.Rules.Sequences.GetSequence(info.OverlaySpriteGroup, info.SourceTileSequence).GetSprite(0);
+				footprint = info.Footprint.Where(c => !char.IsWhiteSpace(c)).ToArray();
+				dimensions = info.Dimensions;
+				tile = world.Map.Rules.Sequences.GetSequence(info.FootprintImage, info.SourceFootprintSequence).GetSprite(0);
 			}
 
-			public IEnumerable<Order> Order(World world, CPos cell, int2 worldPixel, MouseInput mi)
+			protected override IEnumerable<Order> OrderInner(World world, CPos cell, int2 worldPixel, MouseInput mi)
 			{
 				world.CancelInputMode();
 				if (mi.Button == MouseButton.Left)
@@ -144,43 +172,53 @@ namespace OpenRA.Mods.Cnc.Traits
 				yield break;
 			}
 
-			public void Tick(World world)
+			protected override void Tick(World world)
 			{
 				// Cancel the OG if we can't use the power
 				if (!manager.Powers.ContainsKey(order))
 					world.CancelInputMode();
 			}
 
-			public IEnumerable<IRenderable> RenderAboveShroud(WorldRenderer wr, World world)
+			protected override IEnumerable<IRenderable> RenderAboveShroud(WorldRenderer wr, World world) { yield break; }
+
+			protected override IEnumerable<IRenderable> RenderAnnotations(WorldRenderer wr, World world)
 			{
 				var xy = wr.Viewport.ViewToWorld(Viewport.LastMousePos);
 				var targetUnits = power.UnitsInRange(xy).Where(a => !world.FogObscures(a));
 
 				foreach (var unit in targetUnits)
-					if (manager.Self.Owner.CanTargetActor(unit))
-						yield return new SelectionBoxRenderable(unit, Color.Red);
+				{
+					if (unit.CanBeViewedByPlayer(manager.Self.Owner))
+					{
+						var decorations = unit.TraitsImplementing<ISelectionDecorations>().FirstEnabledTraitOrDefault();
+						if (decorations != null)
+							foreach (var d in decorations.RenderSelectionAnnotations(unit, wr, Color.Red))
+								yield return d;
+					}
+				}
 			}
 
-			public IEnumerable<IRenderable> Render(WorldRenderer wr, World world)
+			protected override IEnumerable<IRenderable> Render(WorldRenderer wr, World world)
 			{
 				var xy = wr.Viewport.ViewToWorld(Viewport.LastMousePos);
-				var tiles = world.Map.FindTilesInCircle(xy, range);
+				var tiles = power.CellsMatching(xy, footprint, dimensions);
 				var palette = wr.Palette(((ChronoshiftPowerInfo)power.Info).TargetOverlayPalette);
 				foreach (var t in tiles)
-					yield return new SpriteRenderable(tile, wr.World.Map.CenterOfCell(t), WVec.Zero, -511, palette, 1f, true);
+					yield return new SpriteRenderable(tile, wr.World.Map.CenterOfCell(t), WVec.Zero, -511, palette, 1f, true, true);
 			}
 
-			public string GetCursor(World world, CPos cell, int2 worldPixel, MouseInput mi)
+			protected override string GetCursor(World world, CPos cell, int2 worldPixel, MouseInput mi)
 			{
 				return ((ChronoshiftPowerInfo)power.Info).SelectionCursor;
 			}
 		}
 
-		class SelectDestination : IOrderGenerator
+		class SelectDestination : OrderGenerator
 		{
 			readonly ChronoshiftPower power;
 			readonly CPos sourceLocation;
-			readonly int range;
+			readonly char[] footprint;
+			readonly CVec dimensions;
 			readonly Sprite validTile, invalidTile, sourceTile;
 			readonly SupportPowerManager manager;
 			readonly string order;
@@ -193,15 +231,21 @@ namespace OpenRA.Mods.Cnc.Traits
 				this.sourceLocation = sourceLocation;
 
 				var info = (ChronoshiftPowerInfo)power.Info;
-				range = info.Range;
+				footprint = info.Footprint.Where(c => !char.IsWhiteSpace(c)).ToArray();
+				dimensions = info.Dimensions;
 
-				var tileset = world.Map.Tileset.ToLowerInvariant();
-				validTile = world.Map.Rules.Sequences.GetSequence(info.OverlaySpriteGroup, info.ValidTileSequencePrefix + tileset).GetSprite(0);
-				invalidTile = world.Map.Rules.Sequences.GetSequence(info.OverlaySpriteGroup, info.InvalidTileSequence).GetSprite(0);
-				sourceTile = world.Map.Rules.Sequences.GetSequence(info.OverlaySpriteGroup, info.SourceTileSequence).GetSprite(0);
+				var sequences = world.Map.Rules.Sequences;
+				var tilesetValid = info.ValidFootprintSequence + "-" + world.Map.Tileset.ToLowerInvariant();
+				if (sequences.HasSequence(info.FootprintImage, tilesetValid))
+					validTile = sequences.GetSequence(info.FootprintImage, tilesetValid).GetSprite(0);
+				else
+					validTile = sequences.GetSequence(info.FootprintImage, info.ValidFootprintSequence).GetSprite(0);
+
+				invalidTile = sequences.GetSequence(info.FootprintImage, info.InvalidFootprintSequence).GetSprite(0);
+				sourceTile = sequences.GetSequence(info.FootprintImage, info.SourceFootprintSequence).GetSprite(0);
 			}
 
-			public IEnumerable<Order> Order(World world, CPos cell, int2 worldPixel, MouseInput mi)
+			protected override IEnumerable<Order> OrderInner(World world, CPos cell, int2 worldPixel, MouseInput mi)
 			{
 				if (mi.Button == MouseButton.Right)
 				{
@@ -221,69 +265,84 @@ namespace OpenRA.Mods.Cnc.Traits
 			{
 				// Cannot chronoshift into unexplored location
 				if (IsValidTarget(xy))
-					yield return new Order(order, manager.Self, false)
+					yield return new Order(order, manager.Self, Target.FromCell(manager.Self.World, xy), false)
 					{
-						TargetLocation = xy,
 						ExtraLocation = sourceLocation,
 						SuppressVisualFeedback = true
 					};
 			}
 
-			public void Tick(World world)
+			protected override void Tick(World world)
 			{
 				// Cancel the OG if we can't use the power
 				if (!manager.Powers.ContainsKey(order))
 					world.CancelInputMode();
 			}
 
-			public IEnumerable<IRenderable> RenderAboveShroud(WorldRenderer wr, World world)
+			protected override IEnumerable<IRenderable> RenderAboveShroud(WorldRenderer wr, World world)
 			{
 				var xy = wr.Viewport.ViewToWorld(Viewport.LastMousePos);
 				var palette = wr.Palette(power.Info.IconPalette);
 
 				// Destination tiles
-				foreach (var t in world.Map.FindTilesInCircle(xy, range))
+				var delta = xy - sourceLocation;
+				foreach (var t in power.CellsMatching(sourceLocation, footprint, dimensions))
 				{
-					var tile = manager.Self.Owner.Shroud.IsExplored(t) ? validTile : invalidTile;
-					yield return new SpriteRenderable(tile, wr.World.Map.CenterOfCell(t), WVec.Zero, -511, palette, 1f, true);
+					var tile = manager.Self.Owner.Shroud.IsExplored(t + delta) ? validTile : invalidTile;
+					yield return new SpriteRenderable(tile, wr.World.Map.CenterOfCell(t + delta), WVec.Zero, -511, palette, 1f, true, true);
 				}
 
 				// Unit previews
 				foreach (var unit in power.UnitsInRange(sourceLocation))
 				{
-					if (manager.Self.Owner.CanTargetActor(unit))
+					if (unit.CanBeViewedByPlayer(manager.Self.Owner))
 					{
 						var targetCell = unit.Location + (xy - sourceLocation);
 						var canEnter = manager.Self.Owner.Shroud.IsExplored(targetCell) &&
 							unit.Trait<Chronoshiftable>().CanChronoshiftTo(unit, targetCell);
 						var tile = canEnter ? validTile : invalidTile;
-						yield return new SpriteRenderable(tile, wr.World.Map.CenterOfCell(targetCell), WVec.Zero, -511, palette, 1f, true);
+						yield return new SpriteRenderable(tile, wr.World.Map.CenterOfCell(targetCell), WVec.Zero, -511, palette, 1f, true, true);
 					}
 
 					var offset = world.Map.CenterOfCell(xy) - world.Map.CenterOfCell(sourceLocation);
-					if (manager.Self.Owner.CanTargetActor(unit))
+					if (unit.CanBeViewedByPlayer(manager.Self.Owner))
 						foreach (var r in unit.Render(wr))
 							yield return r.OffsetBy(offset);
 				}
-
-				foreach (var unit in power.UnitsInRange(sourceLocation))
-					if (manager.Self.Owner.CanTargetActor(unit))
-						yield return new SelectionBoxRenderable(unit, Color.Red);
 			}
 
-			public IEnumerable<IRenderable> Render(WorldRenderer wr, World world)
+			protected override IEnumerable<IRenderable> RenderAnnotations(WorldRenderer wr, World world)
+			{
+				foreach (var unit in power.UnitsInRange(sourceLocation))
+				{
+					if (unit.CanBeViewedByPlayer(manager.Self.Owner))
+					{
+						var decorations = unit.TraitsImplementing<ISelectionDecorations>().FirstEnabledTraitOrDefault();
+						if (decorations != null)
+							foreach (var d in decorations.RenderSelectionAnnotations(unit, wr, Color.Red))
+								yield return d;
+					}
+				}
+			}
+
+			protected override IEnumerable<IRenderable> Render(WorldRenderer wr, World world)
 			{
 				var palette = wr.Palette(power.Info.IconPalette);
 
 				// Source tiles
-				foreach (var t in world.Map.FindTilesInCircle(sourceLocation, range))
-					yield return new SpriteRenderable(sourceTile, wr.World.Map.CenterOfCell(t), WVec.Zero, -511, palette, 1f, true);
+				foreach (var t in power.CellsMatching(sourceLocation, footprint, dimensions))
+					yield return new SpriteRenderable(sourceTile, wr.World.Map.CenterOfCell(t), WVec.Zero, -511, palette, 1f, true, true);
 			}
 
 			bool IsValidTarget(CPos xy)
 			{
+				// Don't teleport if there are no units in range (either all moved out of range, or none yet moved into range)
+				var unitsInRange = power.UnitsInRange(sourceLocation);
+				if (!unitsInRange.Any())
+					return false;
+
 				var canTeleport = false;
-				foreach (var unit in power.UnitsInRange(sourceLocation))
+				foreach (var unit in unitsInRange)
 				{
 					var targetCell = unit.Location + (xy - sourceLocation);
 					if (manager.Self.Owner.Shroud.IsExplored(targetCell) && unit.Trait<Chronoshiftable>().CanChronoshiftTo(unit, targetCell))
@@ -304,7 +363,7 @@ namespace OpenRA.Mods.Cnc.Traits
 				return canTeleport;
 			}
 
-			public string GetCursor(World world, CPos cell, int2 worldPixel, MouseInput mi)
+			protected override string GetCursor(World world, CPos cell, int2 worldPixel, MouseInput mi)
 			{
 				var powerInfo = (ChronoshiftPowerInfo)power.Info;
 				return IsValidTarget(cell) ? powerInfo.TargetCursor : powerInfo.TargetBlockedCursor;

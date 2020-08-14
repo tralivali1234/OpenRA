@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,19 +10,26 @@
 #endregion
 
 using System;
+using System.IO;
 using System.Linq;
 using OpenRA.FileSystem;
 using OpenRA.Widgets;
+using FS = OpenRA.FileSystem.FileSystem;
 
 namespace OpenRA.Mods.Common.Widgets.Logic
 {
 	public class ModContentPromptLogic : ChromeLogic
 	{
+		readonly ModContent content;
+		bool requiredContentInstalled;
+
 		[ObjectCreator.UseCtor]
 		public ModContentPromptLogic(Widget widget, ModData modData, Manifest mod, ModContent content, Action continueLoading)
 		{
-			var panel = widget.Get("CONTENT_PROMPT_PANEL");
+			this.content = content;
+			CheckRequiredContentInstalled();
 
+			var panel = widget.Get("CONTENT_PROMPT_PANEL");
 			var headerTemplate = panel.Get<LabelWidget>("HEADER_TEMPLATE");
 			var headerLines = !string.IsNullOrEmpty(content.InstallPromptMessage) ? content.InstallPromptMessage.Replace("\\n", "\n").Split('\n') : new string[0];
 			var headerHeight = 0;
@@ -47,7 +54,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 				{
 					{ "mod", mod },
 					{ "content", content },
-					{ "onCancel", () => { } }
+					{ "onCancel", CheckRequiredContentInstalled }
 				});
 			};
 
@@ -58,7 +65,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			{
 				var modObjectCreator = new ObjectCreator(mod, Game.Mods);
 				var modPackageLoaders = modObjectCreator.GetLoaders<IPackageLoader>(mod.PackageFormats, "package");
-				var modFileSystem = new FileSystem.FileSystem(Game.Mods, modPackageLoaders);
+				var modFileSystem = new FS(mod.Id, Game.Mods, modPackageLoaders);
 				modFileSystem.LoadFromManifest(mod);
 
 				var downloadYaml = MiniYaml.Load(modFileSystem, content.Downloads, null);
@@ -76,9 +83,24 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			};
 
 			var quitButton = panel.Get<ButtonWidget>("QUIT_BUTTON");
+			quitButton.GetText = () => requiredContentInstalled ? "Continue" : "Quit";
 			quitButton.Bounds.Y += headerHeight;
-			quitButton.OnClick = Game.Exit;
+			quitButton.OnClick = () =>
+			{
+				if (requiredContentInstalled)
+					continueLoading();
+				else
+					Game.Exit();
+			};
+
 			Game.RunAfterTick(Ui.ResetTooltips);
+		}
+
+		void CheckRequiredContentInstalled()
+		{
+			requiredContentInstalled = content.Packages
+				.Where(p => p.Value.Required)
+				.All(p => p.Value.TestFiles.All(f => File.Exists(Platform.ResolvePath(f))));
 		}
 	}
 }

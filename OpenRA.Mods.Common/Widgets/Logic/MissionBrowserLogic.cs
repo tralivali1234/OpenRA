@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -17,7 +17,6 @@ using System.Threading;
 using OpenRA.Graphics;
 using OpenRA.Mods.Common.Traits;
 using OpenRA.Network;
-using OpenRA.Primitives;
 using OpenRA.Widgets;
 
 namespace OpenRA.Mods.Common.Widgets.Logic
@@ -105,14 +104,24 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 
 				foreach (var kv in yaml)
 				{
-					var missionMapPaths = kv.Value.Nodes.Select(n => Path.GetFullPath(n.Key)).ToList();
+					var missionMapPaths = kv.Value.Nodes.Select(n => n.Key).ToList();
 
 					var previews = modData.MapCache
-						.Where(p => p.Status == MapStatus.Available && missionMapPaths.Contains(p.Package.Name))
-						.OrderBy(p => missionMapPaths.IndexOf(p.Package.Name));
+						.Where(p => p.Class == MapClassification.System && p.Status == MapStatus.Available)
+						.Select(p => new
+						{
+							Preview = p,
+							Index = missionMapPaths.IndexOf(Path.GetFileName(p.Package.Name))
+						})
+						.Where(x => x.Index != -1)
+						.OrderBy(x => x.Index)
+						.Select(x => x.Preview);
 
-					CreateMissionGroup(kv.Key, previews);
-					allPreviews.AddRange(previews);
+					if (previews.Any())
+					{
+						CreateMissionGroup(kv.Key, previews);
+						allPreviews.AddRange(previews);
+					}
 				}
 			}
 
@@ -155,6 +164,9 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 		void OnGameStart()
 		{
 			Ui.CloseWindow();
+
+			DiscordService.UpdateStatus(DiscordState.PlayingCampaign);
+
 			onStart();
 		}
 
@@ -176,16 +188,16 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			header.Get<LabelWidget>("LABEL").GetText = () => title;
 			missionList.AddChild(header);
 
-			foreach (var p in previews)
+			foreach (var preview in previews)
 			{
-				var preview = p;
-
 				var item = ScrollItemWidget.Setup(template,
 					() => selectedMap != null && selectedMap.Uid == preview.Uid,
 					() => SelectMap(preview),
 					StartMissionClicked);
 
-				item.Get<LabelWidget>("TITLE").GetText = () => preview.Title;
+				var label = item.Get<LabelWithTooltipWidget>("TITLE");
+				WidgetUtils.TruncateLabelToTooltip(label, preview.Title);
+
 				missionList.AddChild(item);
 			}
 		}
@@ -364,11 +376,12 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			if (selectedMap.InvalidCustomRules)
 				return;
 
-			var orders = new[] {
-				Order.Command("option gamespeed {0}".F(gameSpeed)),
-				Order.Command("option difficulty {0}".F(difficulty)),
-				Order.Command("state {0}".F(Session.ClientState.Ready))
-			};
+			var orders = new List<Order>();
+			if (difficulty != null)
+				orders.Add(Order.Command("option difficulty {0}".F(difficulty)));
+
+			orders.Add(Order.Command("option gamespeed {0}".F(gameSpeed)));
+			orders.Add(Order.Command("state {0}".F(Session.ClientState.Ready)));
 
 			var missionData = selectedMap.Rules.Actors["world"].TraitInfoOrDefault<MissionDataInfo>();
 			if (missionData != null && missionData.StartVideo != null && modData.DefaultFileSystem.Exists(missionData.StartVideo))

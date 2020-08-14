@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -22,11 +22,11 @@ namespace OpenRA.Mods.Common.LoadScreens
 	public class BlankLoadScreen : ILoadScreen
 	{
 		public LaunchArguments Launch;
-		ModData modData;
+		protected ModData ModData { get; private set; }
 
 		public virtual void Init(ModData modData, Dictionary<string, string> info)
 		{
-			this.modData = modData;
+			ModData = modData;
 		}
 
 		public virtual void Display()
@@ -35,43 +35,37 @@ namespace OpenRA.Mods.Common.LoadScreens
 				return;
 
 			// Draw a black screen
-			Game.Renderer.BeginFrame(int2.Zero, 1f);
+			Game.Renderer.BeginUI();
 			Game.Renderer.EndFrame(new NullInputHandler());
 		}
 
-		public void StartGame(Arguments args)
+		public virtual void StartGame(Arguments args)
 		{
 			Launch = new LaunchArguments(args);
 			Ui.ResetAll();
 			Game.Settings.Save();
 
-			if (Launch.Benchmark)
+			if (!string.IsNullOrEmpty(Launch.Benchmark))
 			{
-				Log.AddChannel("cpu", "cpu.csv");
-				Log.Write("cpu", "tick;time [ms]");
-
-				Log.AddChannel("render", "render.csv");
-				Log.Write("render", "frame;time [ms]");
-
 				Console.WriteLine("Saving benchmark data into {0}".F(Path.Combine(Platform.SupportDir, "Logs")));
 
-				Game.BenchmarkMode = true;
+				Game.BenchmarkMode(Launch.Benchmark);
 			}
 
 			// Join a server directly
-			var connect = Launch.GetConnectAddress();
-			if (!string.IsNullOrEmpty(connect))
+			var connect = Launch.GetConnectEndPoint();
+			if (connect != null)
 			{
-				var parts = connect.Split(':');
+				Game.LoadShellMap();
+				Game.RemoteDirectConnect(connect);
+				return;
+			}
 
-				if (parts.Length == 2)
-				{
-					var host = parts[0];
-					var port = Exts.ParseIntegerInvariant(parts[1]);
-					Game.LoadShellMap();
-					Game.RemoteDirectConnect(host, port);
-					return;
-				}
+			// Start a map directly
+			if (!string.IsNullOrEmpty(Launch.Map))
+			{
+				Game.LoadMap(Launch.Map);
+				return;
 			}
 
 			// Load a replay directly
@@ -109,14 +103,27 @@ namespace OpenRA.Mods.Common.LoadScreens
 			GC.SuppressFinalize(this);
 		}
 
-		public bool BeforeLoad()
+		public virtual bool BeforeLoad()
 		{
+			// Reset the UI scaling if the user has configured a UI scale that pushes us below the minimum allowed effective resolution
+			var minResolution = ModData.Manifest.Get<WorldViewportSizes>().MinEffectiveResolution;
+			var resolution = Game.Renderer.Resolution;
+			if ((resolution.Width < minResolution.Width || resolution.Height < minResolution.Height) && Game.Settings.Graphics.UIScale > 1.0f)
+			{
+				Game.Settings.Graphics.UIScale = 1.0f;
+				Game.Renderer.SetUIScale(1.0f);
+			}
+
+			// Saved settings may have been invalidated by a hardware change
+			Game.Settings.Graphics.GLProfile = Game.Renderer.GLProfile;
+			Game.Settings.Graphics.VideoDisplay = Game.Renderer.CurrentDisplay;
+
 			// If a ModContent section is defined then we need to make sure that the
 			// required content is installed or switch to the defined content installer.
-			if (!modData.Manifest.Contains<ModContent>())
+			if (!ModData.Manifest.Contains<ModContent>())
 				return true;
 
-			var content = modData.Manifest.Get<ModContent>();
+			var content = ModData.Manifest.Get<ModContent>();
 			var contentInstalled = content.Packages
 				.Where(p => p.Value.Required)
 				.All(p => p.Value.TestFiles.All(f => File.Exists(Platform.ResolvePath(f))));
@@ -124,7 +131,7 @@ namespace OpenRA.Mods.Common.LoadScreens
 			if (contentInstalled)
 				return true;
 
-			Game.InitializeMod(content.ContentInstallerMod, new Arguments(new[] { "Content.Mod=" + modData.Manifest.Id }));
+			Game.InitializeMod(content.ContentInstallerMod, new Arguments(new[] { "Content.Mod=" + ModData.Manifest.Id }));
 			return false;
 		}
 	}

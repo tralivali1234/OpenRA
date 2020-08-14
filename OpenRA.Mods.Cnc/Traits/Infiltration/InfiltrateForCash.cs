@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -12,13 +12,17 @@
 using System;
 using OpenRA.Mods.Common.Effects;
 using OpenRA.Mods.Common.Traits;
+using OpenRA.Primitives;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Cnc.Traits
 {
-	[Desc("This structure can be infiltrated causing funds to be stolen.")]
-	class InfiltrateForCashInfo : ITraitInfo
+	[Desc("Funds are transferred from the owner to the infiltrator.")]
+	class InfiltrateForCashInfo : TraitInfo
 	{
+		[Desc("The `TargetTypes` from `Targetable` that are allowed to enter.")]
+		public readonly BitSet<TargetableType> Types = default(BitSet<TargetableType>);
+
 		[Desc("Percentage of the victim's resources that will be stolen.")]
 		public readonly int Percentage = 100;
 
@@ -29,10 +33,18 @@ namespace OpenRA.Mods.Cnc.Traits
 		[Desc("Maximum amount of funds which will be stolen.")]
 		public readonly int Maximum = int.MaxValue;
 
+		[NotificationReference("Speech")]
 		[Desc("Sound the victim will hear when they get robbed.")]
-		public readonly string Notification = null;
+		public readonly string InfiltratedNotification = null;
 
-		public object Create(ActorInitializer init) { return new InfiltrateForCash(this); }
+		[NotificationReference("Speech")]
+		[Desc("Sound the perpetrator will hear after successful infiltration.")]
+		public readonly string InfiltrationNotification = null;
+
+		[Desc("Whether to show the cash tick indicators rising from the actor.")]
+		public readonly bool ShowTicks = true;
+
+		public override object Create(ActorInitializer init) { return new InfiltrateForCash(this); }
 	}
 
 	class InfiltrateForCash : INotifyInfiltrated
@@ -41,8 +53,11 @@ namespace OpenRA.Mods.Cnc.Traits
 
 		public InfiltrateForCash(InfiltrateForCashInfo info) { this.info = info; }
 
-		void INotifyInfiltrated.Infiltrated(Actor self, Actor infiltrator)
+		void INotifyInfiltrated.Infiltrated(Actor self, Actor infiltrator, BitSet<TargetableType> types)
 		{
+			if (!info.Types.Overlaps(types))
+				return;
+
 			var targetResources = self.Owner.PlayerActor.Trait<PlayerResources>();
 			var spyResources = infiltrator.Owner.PlayerActor.Trait<PlayerResources>();
 			var spyValue = infiltrator.Info.TraitInfoOrDefault<ValuedInfo>();
@@ -53,10 +68,14 @@ namespace OpenRA.Mods.Cnc.Traits
 			targetResources.TakeCash(toTake);
 			spyResources.GiveCash(toGive);
 
-			if (info.Notification != null)
-				Game.Sound.PlayNotification(self.World.Map.Rules, self.Owner, "Speech", info.Notification, self.Owner.Faction.InternalName);
+			if (info.InfiltratedNotification != null)
+				Game.Sound.PlayNotification(self.World.Map.Rules, self.Owner, "Speech", info.InfiltratedNotification, self.Owner.Faction.InternalName);
 
-			self.World.AddFrameEndTask(w => w.Add(new FloatingText(self.CenterPosition, infiltrator.Owner.Color.RGB, FloatingText.FormatCashTick(toGive), 30)));
+			if (info.InfiltrationNotification != null)
+				Game.Sound.PlayNotification(self.World.Map.Rules, infiltrator.Owner, "Speech", info.InfiltrationNotification, infiltrator.Owner.Faction.InternalName);
+
+			if (info.ShowTicks)
+				self.World.AddFrameEndTask(w => w.Add(new FloatingText(self.CenterPosition, infiltrator.Owner.Color, FloatingText.FormatCashTick(toGive), 30)));
 		}
 	}
 }

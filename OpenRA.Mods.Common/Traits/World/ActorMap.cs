@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -12,18 +12,18 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
+using OpenRA.Primitives;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
 {
-	public class ActorMapInfo : ITraitInfo
+	public class ActorMapInfo : TraitInfo
 	{
 		[Desc("Size of partition bins (cells)")]
 		public readonly int BinSize = 10;
 
-		public object Create(ActorInitializer init) { return new ActorMap(init.World, this); }
+		public override object Create(ActorInitializer init) { return new ActorMap(init.World, this); }
 	}
 
 	public class ActorMap : IActorMap, ITick, INotifyCreated
@@ -48,8 +48,8 @@ namespace OpenRA.Mods.Common.Traits
 
 			readonly Action<Actor> onActorEntered;
 			readonly Action<Actor> onActorExited;
-
-			IEnumerable<Actor> currentActors = Enumerable.Empty<Actor>();
+			readonly HashSet<Actor> oldActors = new HashSet<Actor>();
+			readonly HashSet<Actor> currentActors = new HashSet<Actor>();
 
 			public CellTrigger(CPos[] footprint, Action<Actor> onActorEntered, Action<Actor> onActorExited)
 			{
@@ -67,19 +67,22 @@ namespace OpenRA.Mods.Common.Traits
 				if (!Dirty)
 					return;
 
-				var oldActors = currentActors;
-				currentActors = Footprint.SelectMany(actorMap.GetActorsAt).ToList();
+				// PERF: Reuse collection to avoid allocations.
+				oldActors.Clear();
+				oldActors.UnionWith(currentActors);
 
-				var entered = currentActors.Except(oldActors);
-				var exited = oldActors.Except(currentActors);
+				currentActors.Clear();
+				currentActors.UnionWith(Footprint.SelectMany(actorMap.GetActorsAt));
 
 				if (onActorEntered != null)
-					foreach (var a in entered)
-						onActorEntered(a);
+					foreach (var a in currentActors)
+						if (!oldActors.Contains(a))
+							onActorEntered(a);
 
 				if (onActorExited != null)
-					foreach (var a in exited)
-						onActorExited(a);
+					foreach (var a in oldActors)
+						if (!currentActors.Contains(a))
+							onActorExited(a);
 
 				Dirty = false;
 			}
@@ -94,12 +97,12 @@ namespace OpenRA.Mods.Common.Traits
 
 			readonly Action<Actor> onActorEntered;
 			readonly Action<Actor> onActorExited;
+			readonly HashSet<Actor> oldActors = new HashSet<Actor>();
+			readonly HashSet<Actor> currentActors = new HashSet<Actor>();
 
 			WPos position;
 			WDist range;
 			WDist vRange;
-
-			IEnumerable<Actor> currentActors = Enumerable.Empty<Actor>();
 
 			public ProximityTrigger(WPos pos, WDist range, WDist vRange, Action<Actor> onActorEntered, Action<Actor> onActorExited)
 			{
@@ -128,23 +131,26 @@ namespace OpenRA.Mods.Common.Traits
 				if (!Dirty)
 					return;
 
-				var oldActors = currentActors;
-				var delta = new WVec(range, range, WDist.Zero);
-				currentActors = am.ActorsInBox(position - delta, position + delta)
-					.Where(a => (a.CenterPosition - position).HorizontalLengthSquared < range.LengthSquared
-						&& (vRange.Length == 0 || (a.World.Map.DistanceAboveTerrain(a.CenterPosition).LengthSquared <= vRange.LengthSquared)))
-					.ToList();
+				// PERF: Reuse collection to avoid allocations.
+				oldActors.Clear();
+				oldActors.UnionWith(currentActors);
 
-				var entered = currentActors.Except(oldActors);
-				var exited = oldActors.Except(currentActors);
+				var delta = new WVec(range, range, WDist.Zero);
+				currentActors.Clear();
+				currentActors.UnionWith(
+					am.ActorsInBox(position - delta, position + delta)
+					.Where(a => (a.CenterPosition - position).HorizontalLengthSquared < range.LengthSquared
+						&& (vRange.Length == 0 || (a.World.Map.DistanceAboveTerrain(a.CenterPosition).LengthSquared <= vRange.LengthSquared))));
 
 				if (onActorEntered != null)
-					foreach (var a in entered)
-						onActorEntered(a);
+					foreach (var a in currentActors)
+						if (!oldActors.Contains(a))
+							onActorEntered(a);
 
 				if (onActorExited != null)
-					foreach (var a in exited)
-						onActorExited(a);
+					foreach (var a in oldActors)
+						if (!currentActors.Contains(a))
+							onActorExited(a);
 
 				Dirty = false;
 			}
@@ -167,7 +173,7 @@ namespace OpenRA.Mods.Common.Traits
 		readonly CellLayer<InfluenceNode> influence;
 		readonly Dictionary<int, CellLayer<InfluenceNode>> customInfluence = new Dictionary<int, CellLayer<InfluenceNode>>();
 		public readonly Dictionary<int, ICustomMovementLayer> CustomMovementLayers = new Dictionary<int, ICustomMovementLayer>();
-
+		public event Action<CPos> CellUpdated;
 		readonly Bin[] bins;
 		readonly int rows, cols;
 
@@ -176,6 +182,9 @@ namespace OpenRA.Mods.Common.Traits
 		readonly HashSet<Actor> addActorPosition = new HashSet<Actor>();
 		readonly HashSet<Actor> removeActorPosition = new HashSet<Actor>();
 		readonly Predicate<Actor> actorShouldBeRemoved;
+
+		public WDist LargestActorRadius { get; private set; }
+		public WDist LargestBlockingActorRadius { get; private set; }
 
 		public ActorMap(World world, ActorMapInfo info)
 		{
@@ -192,6 +201,10 @@ namespace OpenRA.Mods.Common.Traits
 
 			// PERF: Cache this delegate so it does not have to be allocated repeatedly.
 			actorShouldBeRemoved = removeActorPosition.Contains;
+
+			LargestActorRadius = map.Rules.Actors.SelectMany(a => a.Value.TraitInfos<HitShapeInfo>()).Max(h => h.Type.OuterRadius);
+			var blockers = map.Rules.Actors.Where(a => a.Value.HasTraitInfo<IBlocksProjectilesInfo>());
+			LargestBlockingActorRadius = blockers.Any() ? blockers.SelectMany(a => a.Value.TraitInfos<HitShapeInfo>()).Max(h => h.Type.OuterRadius) : WDist.Zero;
 		}
 
 		void INotifyCreated.Created(Actor self)
@@ -252,7 +265,7 @@ namespace OpenRA.Mods.Common.Traits
 
 			var layer = a.Layer == 0 ? influence : customInfluence[a.Layer];
 			for (var i = layer[uv]; i != null; i = i.Next)
-				if (!i.Actor.Disposed && (i.SubCell == sub || i.SubCell == SubCell.FullCell))
+				if (!i.Actor.Disposed && (i.SubCell == sub || i.SubCell == SubCell.FullCell || sub == SubCell.FullCell || sub == SubCell.Any))
 					yield return i.Actor;
 		}
 
@@ -263,7 +276,7 @@ namespace OpenRA.Mods.Common.Traits
 
 		public SubCell FreeSubCell(CPos cell, SubCell preferredSubCell = SubCell.Any, bool checkTransient = true)
 		{
-			if (preferredSubCell > SubCell.Any && !AnyActorsAt(cell, preferredSubCell, checkTransient))
+			if (preferredSubCell != SubCell.Any && !AnyActorsAt(cell, preferredSubCell, checkTransient))
 				return preferredSubCell;
 
 			if (!AnyActorsAt(cell))
@@ -278,14 +291,14 @@ namespace OpenRA.Mods.Common.Traits
 
 		public SubCell FreeSubCell(CPos cell, SubCell preferredSubCell, Func<Actor, bool> checkIfBlocker)
 		{
-			if (preferredSubCell > SubCell.Any && !AnyActorsAt(cell, preferredSubCell, checkIfBlocker))
+			if (preferredSubCell != SubCell.Any && !AnyActorsAt(cell, preferredSubCell, checkIfBlocker))
 				return preferredSubCell;
 
 			if (!AnyActorsAt(cell))
 				return map.Grid.DefaultSubCell;
 
-			for (var i = (int)SubCell.First; i < map.Grid.SubCellOffsets.Length; i++)
-				if (i != (int)preferredSubCell && !AnyActorsAt(cell, (SubCell)i, checkIfBlocker))
+			for (var i = (byte)SubCell.First; i < map.Grid.SubCellOffsets.Length; i++)
+				if (i != (byte)preferredSubCell && !AnyActorsAt(cell, (SubCell)i, checkIfBlocker))
 					return (SubCell)i;
 			return SubCell.Invalid;
 		}
@@ -357,6 +370,9 @@ namespace OpenRA.Mods.Common.Traits
 				if (cellTriggerInfluence.TryGetValue(c.First, out triggers))
 					foreach (var t in triggers)
 						t.Dirty = true;
+
+				if (CellUpdated != null)
+					CellUpdated(c.First);
 			}
 		}
 
@@ -377,6 +393,9 @@ namespace OpenRA.Mods.Common.Traits
 				if (cellTriggerInfluence.TryGetValue(c.First, out triggers))
 					foreach (var t in triggers)
 						t.Dirty = true;
+
+				if (CellUpdated != null)
+					CellUpdated(c.First);
 			}
 		}
 
@@ -385,14 +404,22 @@ namespace OpenRA.Mods.Common.Traits
 			if (influenceNode == null)
 				return;
 
+			RemoveInfluenceInner(ref influenceNode.Next, toRemove);
+
 			if (influenceNode.Actor == toRemove)
 				influenceNode = influenceNode.Next;
-
-			if (influenceNode != null)
-				RemoveInfluenceInner(ref influenceNode.Next, toRemove);
 		}
 
-		public void Tick(Actor self)
+		public void UpdateOccupiedCells(IOccupySpace ios)
+		{
+			if (CellUpdated == null)
+				return;
+
+			foreach (var c in ios.OccupiedCells())
+				CellUpdated(c.First);
+		}
+
+		void ITick.Tick(Actor self)
 		{
 			// Position updates are done in one pass
 			// to ensure consistency during a tick
@@ -503,7 +530,7 @@ namespace OpenRA.Mods.Common.Traits
 
 		public void AddPosition(Actor a, IOccupySpace ios)
 		{
-			UpdatePosition(a, ios);
+			addActorPosition.Add(a);
 		}
 
 		public void RemovePosition(Actor a, IOccupySpace ios)
@@ -514,7 +541,7 @@ namespace OpenRA.Mods.Common.Traits
 		public void UpdatePosition(Actor a, IOccupySpace ios)
 		{
 			RemovePosition(a, ios);
-			addActorPosition.Add(a);
+			AddPosition(a, ios);
 		}
 
 		int CellCoordToBinIndex(int cell)

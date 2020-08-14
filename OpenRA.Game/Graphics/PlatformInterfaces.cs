@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,15 +10,23 @@
 #endregion
 
 using System;
-using System.Drawing;
 using OpenRA.Graphics;
+using OpenRA.Primitives;
 
 namespace OpenRA
 {
+	public enum GLProfile
+	{
+		Modern,
+		Embedded,
+		Legacy
+	}
+
 	public interface IPlatform
 	{
-		IGraphicsDevice CreateGraphics(Size size, WindowMode windowMode);
+		IPlatformWindow CreateWindow(Size size, WindowMode windowMode, float scaleModifier, int batchSize, int videoDisplay, GLProfile profile);
 		ISoundEngine CreateSound(string device);
+		IFont CreateFont(byte[] data);
 	}
 
 	public interface IHardwareCursor : IDisposable { }
@@ -31,44 +39,61 @@ namespace OpenRA
 		Subtractive,
 		Multiply,
 		Multiplicative,
-		DoubleMultiplicative
+		DoubleMultiplicative,
+		LowAdditive,
+		Screen,
+		Translucent
 	}
 
-	public interface IGraphicsDevice : IDisposable
+	public interface IPlatformWindow : IDisposable
 	{
-		IVertexBuffer<Vertex> CreateVertexBuffer(int length);
-		ITexture CreateTexture(Bitmap bitmap);
-		ITexture CreateTexture();
-		IFrameBuffer CreateFrameBuffer(Size s);
-		IShader CreateShader(string name);
+		IGraphicsContext Context { get; }
 
-		Size WindowSize { get; }
-		float WindowScale { get; }
-		event Action<float, float> OnWindowScaleChanged;
+		Size NativeWindowSize { get; }
+		Size EffectiveWindowSize { get; }
+		float NativeWindowScale { get; }
+		float EffectiveWindowScale { get; }
+		Size SurfaceSize { get; }
+		int DisplayCount { get; }
+		int CurrentDisplay { get; }
+		bool HasInputFocus { get; }
 
-		void Clear();
-		void Present();
-		Bitmap TakeScreenshot();
+		event Action<float, float, float, float> OnWindowScaleChanged;
+
 		void PumpInput(IInputHandler inputHandler);
 		string GetClipboardText();
 		bool SetClipboardText(string text);
-		void DrawPrimitives(PrimitiveType type, int firstVertex, int numVertices);
-
-		void EnableScissor(int left, int top, int width, int height);
-		void DisableScissor();
-
-		void EnableDepthBuffer();
-		void DisableDepthBuffer();
-		void ClearDepthBuffer();
-
-		void SetBlendMode(BlendMode mode);
 
 		void GrabWindowMouseFocus();
 		void ReleaseWindowMouseFocus();
 
-		IHardwareCursor CreateHardwareCursor(string name, Size size, byte[] data, int2 hotspot);
+		IHardwareCursor CreateHardwareCursor(string name, Size size, byte[] data, int2 hotspot, bool pixelDouble);
 		void SetHardwareCursor(IHardwareCursor cursor);
+		void SetRelativeMouseMode(bool mode);
+		void SetScaleModifier(float scale);
 
+		GLProfile GLProfile { get; }
+
+		GLProfile[] SupportedGLProfiles { get; }
+	}
+
+	public interface IGraphicsContext : IDisposable
+	{
+		IVertexBuffer<Vertex> CreateVertexBuffer(int size);
+		ITexture CreateTexture();
+		IFrameBuffer CreateFrameBuffer(Size s);
+		IFrameBuffer CreateFrameBuffer(Size s, Color clearColor);
+		IShader CreateShader(string name);
+		void EnableScissor(int x, int y, int width, int height);
+		void DisableScissor();
+		void Present();
+		void DrawPrimitives(PrimitiveType pt, int firstVertex, int numVertices);
+		void Clear();
+		void EnableDepthBuffer();
+		void DisableDepthBuffer();
+		void ClearDepthBuffer();
+		void SetBlendMode(BlendMode mode);
+		void SetVSyncEnabled(bool enabled);
 		string GLVersion { get; }
 	}
 
@@ -89,14 +114,13 @@ namespace OpenRA
 		void SetVec(string name, float[] vec, int length);
 		void SetTexture(string param, ITexture texture);
 		void SetMatrix(string param, float[] mtx);
-		void Render(Action a);
+		void PrepareRender();
 	}
 
 	public enum TextureScaleFilter { Nearest, Linear }
 
 	public interface ITexture : IDisposable
 	{
-		void SetData(Bitmap bitmap);
 		void SetData(uint[,] colors);
 		void SetData(byte[] colors, int width, int height);
 		byte[] GetData();
@@ -108,6 +132,8 @@ namespace OpenRA
 	{
 		void Bind();
 		void Unbind();
+		void EnableScissor(Rectangle rect);
+		void DisableScissor();
 		ITexture Texture { get; }
 	}
 
@@ -129,5 +155,18 @@ namespace OpenRA
 		Windowed,
 		Fullscreen,
 		PseudoFullscreen,
+	}
+
+	public interface IFont : IDisposable
+	{
+		FontGlyph CreateGlyph(char c, int size, float deviceScale);
+	}
+
+	public struct FontGlyph
+	{
+		public int2 Offset;
+		public Size Size;
+		public float Advance;
+		public byte[] Data;
 	}
 }

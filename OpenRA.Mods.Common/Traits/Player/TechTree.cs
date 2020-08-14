@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -9,6 +9,7 @@
  */
 #endregion
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using OpenRA.Primitives;
@@ -17,9 +18,9 @@ using OpenRA.Traits;
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("Manages build limits and pre-requisites.", " Attach this to the player actor.")]
-	public class TechTreeInfo : ITraitInfo
+	public class TechTreeInfo : TraitInfo
 	{
-		public object Create(ActorInitializer init) { return new TechTree(init); }
+		public override object Create(ActorInitializer init) { return new TechTree(init); }
 	}
 
 	public class TechTree
@@ -66,7 +67,7 @@ namespace OpenRA.Mods.Common.Traits
 		public bool HasPrerequisites(IEnumerable<string> prerequisites)
 		{
 			var ownedPrereqs = GatherOwnedPrerequisites(player);
-			return prerequisites.All(p => !(p.Replace("~", "").StartsWith("!")
+			return prerequisites.All(p => !(p.Replace("~", "").StartsWith("!", StringComparison.Ordinal)
 					^ !ownedPrereqs.ContainsKey(p.Replace("!", "").Replace("~", ""))));
 		}
 
@@ -130,13 +131,30 @@ namespace OpenRA.Mods.Common.Traits
 
 			bool HasPrerequisites(Cache<string, List<Actor>> ownedPrerequisites)
 			{
-				return prerequisites.All(p => !(p.Replace("~", "").StartsWith("!") ^ !ownedPrerequisites.ContainsKey(p.Replace("!", "").Replace("~", ""))));
+				// PERF: Avoid LINQ.
+				foreach (var prereq in prerequisites)
+				{
+					var withoutTilde = prereq.Replace("~", "");
+					if (withoutTilde.StartsWith("!", StringComparison.Ordinal) ^ !ownedPrerequisites.ContainsKey(withoutTilde.Replace("!", "")))
+						return false;
+				}
+
+				return true;
 			}
 
 			bool IsHidden(Cache<string, List<Actor>> ownedPrerequisites)
 			{
-				return prerequisites.Any(prereq => prereq.StartsWith("~") &&
-					(prereq.Replace("~", "").StartsWith("!") ^ !ownedPrerequisites.ContainsKey(prereq.Replace("~", "").Replace("!", ""))));
+				// PERF: Avoid LINQ.
+				foreach (var prereq in prerequisites)
+				{
+					if (!prereq.StartsWith("~", StringComparison.Ordinal))
+						continue;
+					var withoutTilde = prereq.Replace("~", "");
+					if (withoutTilde.StartsWith("!", StringComparison.Ordinal) ^ !ownedPrerequisites.ContainsKey(withoutTilde.Replace("!", "")))
+						return true;
+				}
+
+				return false;
 			}
 
 			public void Update(Cache<string, List<Actor>> ownedPrerequisites)

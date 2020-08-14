@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -11,6 +11,7 @@
 
 using System.Collections.Generic;
 using OpenRA.Graphics;
+using OpenRA.Primitives;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
@@ -18,8 +19,9 @@ namespace OpenRA.Mods.Common.Traits
 	[Desc("Display a colored overlay when a timed condition is active.")]
 	public class WithColoredOverlayInfo : ConditionalTraitInfo
 	{
+		[PaletteReference]
 		[Desc("Palette to use when rendering the overlay")]
-		[PaletteReference] public readonly string Palette = "invuln";
+		public readonly string Palette = "invuln";
 
 		public override object Create(ActorInitializer init) { return new WithColoredOverlay(this); }
 	}
@@ -29,7 +31,7 @@ namespace OpenRA.Mods.Common.Traits
 		public WithColoredOverlay(WithColoredOverlayInfo info)
 			: base(info) { }
 
-		public IEnumerable<IRenderable> ModifyRender(Actor self, WorldRenderer wr, IEnumerable<IRenderable> r)
+		IEnumerable<IRenderable> IRenderModifier.ModifyRender(Actor self, WorldRenderer wr, IEnumerable<IRenderable> r)
 		{
 			if (IsTraitDisabled)
 				return r;
@@ -48,6 +50,11 @@ namespace OpenRA.Mods.Common.Traits
 						.WithZOffset(a.ZOffset + 1)
 						.AsDecoration();
 			}
+		}
+
+		IEnumerable<Rectangle> IRenderModifier.ModifyScreenBounds(Actor self, WorldRenderer wr, IEnumerable<Rectangle> bounds)
+		{
+			return bounds;
 		}
 	}
 }

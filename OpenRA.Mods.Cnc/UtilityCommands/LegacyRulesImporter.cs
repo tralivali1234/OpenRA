@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -14,7 +14,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using OpenRA.Mods.Common.FileFormats;
-using OpenRA.Mods.Common.Traits;
 
 namespace OpenRA.Mods.Cnc.UtilityCommands
 {
@@ -115,7 +114,7 @@ namespace OpenRA.Mods.Cnc.UtilityCommands
 
 				var crewed = rulesSection.GetValue("Crewed", string.Empty);
 				if (!string.IsNullOrEmpty(crewed) && crewed == "yes")
-					Console.WriteLine("\tEmitInfantryOnSell:");
+					Console.WriteLine("\tSpawnActorsOnSell:");
 
 				var deploysInto = rulesSection.GetValue("DeploysInto", string.Empty);
 				if (!string.IsNullOrEmpty(deploysInto))
@@ -191,14 +190,7 @@ namespace OpenRA.Mods.Cnc.UtilityCommands
 					Console.WriteLine("\tRenderSprites:");
 
 				if (useTerrainPalette)
-				{
-					if (Game.ModData.DefaultRules.Actors.ContainsKey("world"))
-					{
-						var terrainPaletteDefintion = Game.ModData.DefaultRules.Actors["world"].TraitInfos<PaletteFromCurrentTilesetInfo>();
-						if (terrainPaletteDefintion.Any())
-							Console.WriteLine("\t\tPalette: " + terrainPaletteDefintion.Last().Name);
-					}
-				}
+					Console.WriteLine("\t\tPalette: terrain");
 
 				var image = rulesSection.GetValue("Image", string.Empty);
 				if (!string.IsNullOrEmpty(image) && image != "none")

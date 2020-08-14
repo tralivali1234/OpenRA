@@ -1,4 +1,5 @@
 spicebloom.spawnpoint:
+	Interactable:
 	EditorOnlyTooltip:
 		Name: Spice Bloom spawnpoint
 	AlwaysVisible:
@@ -9,7 +10,6 @@ spicebloom.spawnpoint:
 		Sequence: grow3
 	BodyOrientation:
 		QuantizedFacings: 1
-	ConditionManager:
 	GrantConditionOnTerrain:
 		Condition: clearsand
 		TerrainTypes: SpiceSand
@@ -19,17 +19,21 @@ spicebloom.spawnpoint:
 	SpawnActorOnDeath:
 		Actor: spicebloom
 	Health:
-		HP: 9999
-		Shape: Circle
-			Radius: 1
+		HP: 100000
 	Immobile:
 		OccupiesSpace: false
+	HitShape:
+		Type: Circle
+			Radius: 1
+	MapEditorData:
+		Categories: System
+	RequiresSpecificOwners:
+		ValidOwnerNames: Neutral
 
 spicebloom:
 	HiddenUnderShroud:
 	BodyOrientation:
 		QuantizedFacings: 1
-	AutoSelectionSize:
 	RenderSprites:
 	AppearsOnRadar:
 		UseLocation: true
@@ -45,11 +49,11 @@ spicebloom:
 		CrushedByFriendlies: true
 	RadarColorFromTerrain:
 		Terrain: Spice
+	AppearsOnMapPreview:
+		Terrain: Spice
 	Immobile:
 	Health:
 		HP: 1
-		Shape: Circle
-			Radius: 512
 	Targetable:
 		TargetTypes: Ground
 		RequiresForceFire: true
@@ -57,25 +61,32 @@ spicebloom:
 		Type: none
 	SpawnActorOnDeath:
 		Actor: spicebloom.spawnpoint
+	HitShape:
+		Type: Circle
+			Radius: 16
+	MapEditorData:
+		Categories: System
+	Interactable:
+	RequiresSpecificOwners:
+		ValidOwnerNames: Neutral
 
 sandworm:
 	Inherits@1: ^SpriteActor
+	Interactable:
 	Tooltip:
 		Name: Sandworm
 	Health:
-		HP: 9990
-		Radius: 256
+		HP: 100000
+	HitShape:
+		Type: Circle
+			Radius: 16
 	Armor:
 		Type: heavy
 	Mobile:
 		Speed: 42
-		TerrainSpeeds:
-			Sand: 100
-			Dune: 100
-			SpiceSand: 100
-			Spice: 100
+		Locomotor: worm
 	Targetable:
-		TargetTypes: Ground
+		TargetTypes: Ground, Creep
 	WithSpriteBody:
 	WithIdleAnimation:
 		Interval: 160
@@ -94,7 +105,6 @@ sandworm:
 		UseLocation: true
 	AttackSwallow:
 		AttackRequiresEnteringCell: true
-		IgnoresVisibility: true
 		AttackingCondition: attacking
 	Armament:
 		Weapon: WormJaw
@@ -114,10 +124,11 @@ sandworm:
 		TerrainTypes: Sand, Dune, SpiceSand, Spice
 		MovingInterval: 3
 		RequiresCondition: !attacking
-	ConditionManager:
 	RevealOnFire:
 		Duration: 50
 		Radius: 2c512
+	RequiresSpecificOwners:
+		ValidOwnerNames: Creeps
 
 sietch:
 	Inherits: ^Building
@@ -128,7 +139,7 @@ sietch:
 		Dimensions: 2,2
 		TerrainTypes: Cliff
 	Health:
-		HP: 6000
+		HP: 60000
 	Armor:
 		Type: wood
 	RevealsShroud:
@@ -137,8 +148,10 @@ sietch:
 	-GivesBuildableArea:
 	-Sellable:
 	-Capturable:
-	Power:
-		Amount: 0
+	-RepairableBuilding:
+	Demolishable:
+		-Condition:
 	ProvidesPrerequisite@buildingname:
 	-WithMakeAnimation:
 	-WithCrumbleOverlay:
+	-WithBuildingRepairDecoration:

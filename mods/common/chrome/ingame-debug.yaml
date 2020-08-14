@@ -4,8 +4,8 @@ Container@DEBUG_PANEL:
 	Width: PARENT_RIGHT
 	Height: PARENT_BOTTOM
 	Children:
-		Label@LABLE_TITLE:
-			Y: 25
+		Label@TITLE:
+			Y: 26
 			Font: Bold
 			Text: Debug Options
 			Align: Center
@@ -81,7 +81,7 @@ Container@DEBUG_PANEL:
 			Font: Bold
 			Text: Reset Shroud
 		Label@VISUALIZATIONS_TITLE:
-			Y: 255
+			Y: 256
 			Font: Bold
 			Text: Visualizations
 			Align: Center
@@ -100,6 +100,13 @@ Container@DEBUG_PANEL:
 			Width: 200
 			Font: Regular
 			Text: Show Custom Terrain
+		Checkbox@SHOW_ACTOR_TAGS:
+			X: 45
+			Y: 335
+			Height: 20
+			Width: 200
+			Font: Regular
+			Text: Show Actor Tags
 		Checkbox@SHOW_COMBATOVERLAY:
 			X: 290
 			Y: 275
@@ -121,10 +128,10 @@ Container@DEBUG_PANEL:
 			Width: 200
 			Font: Regular
 			Text: Show Terrain Geometry
-		Checkbox@SHOW_ACTOR_TAGS:
-			X: 45
-			Y: 335
+		Checkbox@SHOW_SCREENMAP:
+			X: 290
+			Y: 365
 			Height: 20
 			Width: 200
 			Font: Regular
-			Text: Show Actor Tags
+			Text: Show Screen Map

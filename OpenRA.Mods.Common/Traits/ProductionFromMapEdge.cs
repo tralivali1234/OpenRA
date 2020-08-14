@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -9,20 +9,19 @@
  */
 #endregion
 
-using System.Drawing;
-using OpenRA;
+using System.Collections.Generic;
 using OpenRA.Primitives;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("Produce a unit on the closest map edge cell and move into the world.")]
-	class ProductionFromMapEdgeInfo : ProductionInfo, UsesInit<ProductionSpawnLocationInit>
+	class ProductionFromMapEdgeInfo : ProductionInfo
 	{
 		public override object Create(ActorInitializer init) { return new ProductionFromMapEdge(init, this); }
 	}
 
-	class ProductionFromMapEdge : Production, INotifyCreated
+	class ProductionFromMapEdge : Production
 	{
 		readonly CPos? spawnLocation;
 		readonly DomainIndex domainIndex;
@@ -32,22 +31,28 @@ namespace OpenRA.Mods.Common.Traits
 			: base(init, info)
 		{
 			domainIndex = init.Self.World.WorldActor.Trait<DomainIndex>();
-			if (init.Contains<ProductionSpawnLocationInit>())
-				spawnLocation = init.Get<ProductionSpawnLocationInit, CPos>();
+
+			var spawnLocationInit = init.GetOrDefault<ProductionSpawnLocationInit>(info);
+			if (spawnLocationInit != null)
+				spawnLocation = spawnLocationInit.Value;
 		}
 
-		void INotifyCreated.Created(Actor self)
+		protected override void Created(Actor self)
 		{
+			base.Created(self);
+
 			rp = self.TraitOrDefault<RallyPoint>();
 		}
 
-		public override bool Produce(Actor self, ActorInfo producee, string factionVariant)
+		public override bool Produce(Actor self, ActorInfo producee, string productionType, TypeDictionary inits)
 		{
+			if (IsTraitDisabled || IsTraitPaused)
+				return false;
+
 			var aircraftInfo = producee.TraitInfoOrDefault<AircraftInfo>();
 			var mobileInfo = producee.TraitInfoOrDefault<MobileInfo>();
 
-			var passable = mobileInfo != null ? (uint)mobileInfo.GetMovementClass(self.World.Map.Rules.TileSet) : 0;
-			var destination = rp != null ? rp.Location : self.Location;
+			var destinations = rp != null && rp.Path.Count > 0 ? rp.Path : new List<CPos> { self.Location };
 
 			var location = spawnLocation;
 			if (!location.HasValue)
@@ -56,8 +61,11 @@ namespace OpenRA.Mods.Common.Traits
 					location = self.World.Map.ChooseClosestEdgeCell(self.Location);
 
 				if (mobileInfo != null)
+				{
+					var locomotorInfo = mobileInfo.LocomotorInfo;
 					location = self.World.Map.ChooseClosestMatchingEdgeCell(self.Location,
-						c => mobileInfo.CanEnterCell(self.World, null, c) && domainIndex.IsPassable(c, destination, mobileInfo, passable));
+						c => mobileInfo.CanEnterCell(self.World, null, c) && domainIndex.IsPassable(c, destinations[0], locomotorInfo));
+				}
 			}
 
 			// No suitable spawn location could be found, so production has failed.
@@ -70,50 +78,41 @@ namespace OpenRA.Mods.Common.Traits
 			if (aircraftInfo != null)
 				pos += new WVec(0, 0, aircraftInfo.CruiseAltitude.Length);
 
-			var initialFacing = self.World.Map.FacingBetween(location.Value, destination, 0);
+			var initialFacing = self.World.Map.FacingBetween(location.Value, destinations[0], WAngle.Zero);
 
 			self.World.AddFrameEndTask(w =>
 			{
-				var td = new TypeDictionary
-				{
-					new OwnerInit(self.Owner),
-					new LocationInit(location.Value),
-					new CenterPositionInit(pos),
-					new FacingInit(initialFacing)
-				};
+				var td = new TypeDictionary();
+				foreach (var init in inits)
+					td.Add(init);
 
-				if (factionVariant != null)
-					td.Add(new FactionInit(factionVariant));
+				td.Add(new LocationInit(location.Value));
+				td.Add(new CenterPositionInit(pos));
+				td.Add(new FacingInit(initialFacing));
 
 				var newUnit = self.World.CreateActor(producee.Name, td);
 
 				var move = newUnit.TraitOrDefault<IMove>();
 				if (move != null)
-					newUnit.QueueActivity(move.MoveTo(destination, 2));
-
-				newUnit.SetTargetLine(Target.FromCell(self.World, destination), Color.Green, false);
+					foreach (var cell in destinations)
+						newUnit.QueueActivity(move.MoveTo(cell, 2, evaluateNearestMovableCell: true));
 
 				if (!self.IsDead)
 					foreach (var t in self.TraitsImplementing<INotifyProduction>())
-						t.UnitProduced(self, newUnit, destination);
+						t.UnitProduced(self, newUnit, destinations[0]);
 
 				var notifyOthers = self.World.ActorsWithTrait<INotifyOtherProduction>();
 				foreach (var notify in notifyOthers)
-					notify.Trait.UnitProducedByOther(notify.Actor, self, newUnit);
-
-				foreach (var t in newUnit.TraitsImplementing<INotifyBuildComplete>())
-					t.BuildingComplete(newUnit);
+					notify.Trait.UnitProducedByOther(notify.Actor, self, newUnit, productionType, td);
 			});
 
 			return true;
 		}
 	}
 
-	public class ProductionSpawnLocationInit : IActorInit<CPos>
+	public class ProductionSpawnLocationInit : ValueActorInit<CPos>
 	{
-		[FieldFromYamlKey] readonly CPos value = CPos.Zero;
-		public ProductionSpawnLocationInit() { }
-		public ProductionSpawnLocationInit(CPos init) { value = init; }
-		public CPos Value(World world) { return value; }
+		public ProductionSpawnLocationInit(TraitInfo info, CPos value)
+			: base(info, value) { }
 	}
 }

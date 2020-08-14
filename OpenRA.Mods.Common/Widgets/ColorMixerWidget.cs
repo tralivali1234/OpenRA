@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,9 +10,9 @@
 #endregion
 
 using System;
-using System.Drawing;
 using System.Threading;
 using OpenRA.Graphics;
+using OpenRA.Primitives;
 using OpenRA.Widgets;
 
 namespace OpenRA.Mods.Common.Widgets
@@ -65,7 +65,7 @@ namespace OpenRA.Mods.Common.Widgets
 			vRange[1] = vMax - VTrim;
 
 			var rect = new Rectangle((int)(255 * sRange[0]), (int)(255 * (1 - vRange[1])), (int)(255 * (sRange[1] - sRange[0])) + 1, (int)(255 * (vRange[1] - vRange[0])) + 1);
-			mixerSprite = new Sprite(mixerSprite.Sheet, rect, TextureChannel.Alpha);
+			mixerSprite = new Sprite(mixerSprite.Sheet, rect, TextureChannel.RGBA);
 		}
 
 		public override void Initialize(WidgetArgs args)
@@ -84,7 +84,7 @@ namespace OpenRA.Mods.Common.Widgets
 			var rect = new Rectangle((int)(255 * sRange[0]), (int)(255 * (1 - vRange[1])), (int)(255 * (sRange[1] - sRange[0])) + 1, (int)(255 * (vRange[1] - vRange[0])) + 1);
 			var mixerSheet = new Sheet(SheetType.BGRA, new Size(256, 256));
 			mixerSheet.GetTexture().SetData(front, 256, 256);
-			mixerSprite = new Sprite(mixerSheet, rect, TextureChannel.Alpha);
+			mixerSprite = new Sprite(mixerSheet, rect, TextureChannel.RGBA);
 			GenerateBitmap();
 		}
 
@@ -109,7 +109,7 @@ namespace OpenRA.Mods.Common.Widgets
 			lock (syncWorker)
 				workerAlive = true;
 
-			for (;;)
+			while (true)
 			{
 				float hue;
 				lock (syncWorker)
@@ -134,7 +134,7 @@ namespace OpenRA.Mods.Common.Widgets
 						var c = (int*)cc;
 						for (var v = 0; v < 256; v++)
 							for (var s = 0; s < 256; s++)
-								*(c + (v * 256) + s) = HSLColor.FromHSV(hue, s / 255f, (255 - v) / 255f).RGB.ToArgb();
+								(*(c + (v * 256) + s)) = Color.FromAhsv(hue, s / 255f, (255 - v) / 255f).ToArgb();
 					}
 				}
 
@@ -164,8 +164,8 @@ namespace OpenRA.Mods.Common.Widgets
 			Game.Renderer.RgbaSpriteRenderer.DrawSprite(mixerSprite, RenderOrigin, new float2(RenderBounds.Size));
 
 			var sprite = ChromeProvider.GetImage("lobby-bits", "colorpicker");
-			var pos = RenderOrigin + PxFromValue() - new int2(sprite.Bounds.Width, sprite.Bounds.Height) / 2;
-			WidgetUtils.FillEllipseWithColor(new Rectangle(pos.X + 1, pos.Y + 1, sprite.Bounds.Width - 2, sprite.Bounds.Height - 2), Color.RGB);
+			var pos = RenderOrigin + PxFromValue() - new int2((int)sprite.Size.X, (int)sprite.Size.Y) / 2;
+			WidgetUtils.FillEllipseWithColor(new Rectangle(pos.X + 1, pos.Y + 1, (int)sprite.Size.X - 2, (int)sprite.Size.Y - 2), Color);
 			Game.Renderer.RgbaSpriteRenderer.DrawSprite(sprite, pos);
 		}
 
@@ -221,7 +221,7 @@ namespace OpenRA.Mods.Common.Widgets
 			return true;
 		}
 
-		public HSLColor Color { get { return HSLColor.FromHSV(H, S, V); } }
+		public Color Color { get { return Color.FromAhsv(H, S, V); } }
 
 		public void Set(float hue)
 		{
@@ -233,10 +233,11 @@ namespace OpenRA.Mods.Common.Widgets
 			}
 		}
 
-		public void Set(HSLColor color)
+		public void Set(Color color)
 		{
 			float h, s, v;
-			color.ToHSV(out h, out s, out v);
+			int a;
+			color.ToAhsv(out a, out h, out s, out v);
 
 			if (H != h || S != s || V != v)
 			{

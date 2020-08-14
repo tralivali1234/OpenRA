@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -22,7 +22,8 @@ namespace OpenRA.Mods.Cnc.UtilityCommands
 	class ImportTiberianDawnLegacyMapCommand : ImportLegacyMapCommand, IUtilityCommand
 	{
 		// NOTE: 64x64 map size is a C&C95 engine limitation
-		public ImportTiberianDawnLegacyMapCommand() : base(64) { }
+		public ImportTiberianDawnLegacyMapCommand()
+			: base(64) { }
 
 		string IUtilityCommand.Name { get { return "--import-td-map"; } }
 		bool IUtilityCommand.ValidateArguments(string[] args) { return ValidateArguments(args); }
@@ -72,10 +73,13 @@ namespace OpenRA.Mods.Cnc.UtilityCommands
 		static string[] overlayActors = new string[]
 		{
 			// Fences
-			"sbag", "cycl", "brik", "fenc", "wood", "wood",
+			"sbag", "cycl", "brik", "fenc", "wood",
 
 			// Fields
-			"v12", "v13", "v14", "v15", "v16", "v17", "v18"
+			"v12", "v13", "v14", "v15", "v16", "v17", "v18",
+
+			// Crates
+			"wcrate", "scrate"
 		};
 
 		void ReadOverlay(IniFile file)
@@ -111,7 +115,17 @@ namespace OpenRA.Mods.Cnc.UtilityCommands
 
 		public override string ParseTreeActor(string input)
 		{
-			return input.Split(',')[0].ToLowerInvariant();
+			var tree = input.Split(',')[0].ToLowerInvariant();
+
+			switch (tree)
+			{
+				case "split2":
+					return "t03.transformable";
+				case "split3":
+					return "t13.transformable";
+				default:
+					return tree;
+			}
 		}
 
 		public override CPos ParseActorLocation(string input, int loc)
@@ -136,7 +150,7 @@ namespace OpenRA.Mods.Cnc.UtilityCommands
 				faction = "gdi";
 				break;
 			case "BadGuy":
-				color = "red"; // TODO: use the grey unit color theme for missions
+				color = "red";
 				faction = "nod";
 				break;
 			case "Special":

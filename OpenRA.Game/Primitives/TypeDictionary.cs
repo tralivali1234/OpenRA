@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -39,6 +39,11 @@ namespace OpenRA.Primitives
 		public bool Contains<T>()
 		{
 			return data.ContainsKey(typeof(T));
+		}
+
+		public bool Contains(Type t)
+		{
+			return data.ContainsKey(t);
 		}
 
 		public T Get<T>()
@@ -95,6 +100,12 @@ namespace OpenRA.Primitives
 			objs.Remove(val);
 			if (objs.Count == 0)
 				data.Remove(t);
+		}
+
+		public void TrimExcess()
+		{
+			foreach (var objs in data.Values)
+				objs.TrimExcess();
 		}
 
 		public IEnumerator GetEnumerator()

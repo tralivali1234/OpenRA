@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,13 +10,12 @@
 #endregion
 
 using System;
-using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Lint
 {
 	public class CheckMapCordon : ILintMapPass
 	{
-		public void Run(Action<string> emitError, Action<string> emitWarning, Map map)
+		public void Run(Action<string> emitError, Action<string> emitWarning, ModData modData, Map map)
 		{
 			if (map.Bounds.Left == 0 || map.Bounds.Top == 0
 				|| map.Bounds.Right == map.MapSize.X || map.Bounds.Bottom == map.MapSize.Y)

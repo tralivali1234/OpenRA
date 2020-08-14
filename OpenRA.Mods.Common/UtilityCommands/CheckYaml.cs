@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -12,7 +12,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using OpenRA.Traits;
+using OpenRA.FileSystem;
+using OpenRA.Mods.Common.Lint;
 
 namespace OpenRA.Mods.Common.UtilityCommands
 {
@@ -76,17 +77,23 @@ namespace OpenRA.Mods.Common.UtilityCommands
 						}
 					}
 
-					modData.MapCache.LoadMaps();
-					maps.AddRange(modData.MapCache
-						.Where(m => m.Status == MapStatus.Available)
-						.Select(m => new Map(modData, m.Package)));
+					// Use all system maps for lint checking
+					maps = modData.MapCache.EnumerateMapsWithoutCaching().ToList();
 				}
 				else
-					maps.Add(new Map(modData, modData.ModFiles.OpenPackage(args[1], new FileSystem.Folder("."))));
+					maps.Add(new Map(modData, new Folder(".").OpenPackage(args[1], modData.ModFiles)));
 
 				foreach (var testMap in maps)
 				{
 					Console.WriteLine("Testing map: {0}".F(testMap.Title));
+
+					// Lint tests can't be trusted if the map rules are bogus
+					// so report that problem then skip the tests
+					if (testMap.InvalidCustomRules)
+					{
+						EmitError(testMap.InvalidCustomRulesException.ToString());
+						continue;
+					}
 
 					// Run all rule checks on the map if it defines custom rules.
 					if (testMap.RuleDefinitions != null || testMap.VoiceDefinitions != null || testMap.WeaponDefinitions != null)
@@ -98,7 +105,7 @@ namespace OpenRA.Mods.Common.UtilityCommands
 						try
 						{
 							var customMapPass = (ILintMapPass)modData.ObjectCreator.CreateBasic(customMapPassType);
-							customMapPass.Run(EmitError, EmitWarning, testMap);
+							customMapPass.Run(EmitError, EmitWarning, modData, testMap);
 						}
 						catch (Exception e)
 						{

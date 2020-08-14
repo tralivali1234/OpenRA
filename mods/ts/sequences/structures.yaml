@@ -112,6 +112,11 @@ gapowr:
 		-DepthSprite:
 
 gapowrup:
+	place: gtpowr_b
+		Offset: -24, -24, 24
+		Start: 0
+		Length: 11
+		Tick: 200
 	icon: turbicon
 
 gapile:
@@ -352,11 +357,11 @@ nahand:
 		Tick: 100
 		ZOffset: 1023
 	idle-lights: nthand_b
-		Length: 8
+		Length: 12
 		Tick: 200
 	damaged-idle-lights: nthand_b
-		Start: 8
-		Length: 8
+		Start: 12
+		Length: 12
 		Tick: 200
 	make: nthandmk
 		Length: 15
@@ -706,9 +711,6 @@ gagate_a:
 		Start: 20
 		Tick: 400
 		ShadowStart: 41
-	make:
-		Frames: 9, 8, 7, 6, 5, 4, 3, 2, 1
-		Length: 9
 	emp-overlay: emp_fx01
 		Length: *
 		Offset: 0, 0, 25
@@ -750,9 +752,6 @@ gagate_b:
 		Start: 20
 		Tick: 400
 		ShadowStart: 41
-	make:
-		Frames: 9, 8, 7, 6, 5, 4, 3, 2, 1
-		Length: 9
 	emp-overlay: emp_fx01
 		Length: *
 		Offset: 0, 0, 25
@@ -799,9 +798,6 @@ nagate_a:
 		Start: 14
 		Tick: 400
 		ShadowStart: 29
-	make:
-		Frames: 6, 5, 4, 3, 2, 1
-		Length: 6
 	emp-overlay: emp_fx01
 		Length: *
 		Offset: 0, 0, 25
@@ -844,9 +840,6 @@ nagate_b:
 		Start: 14
 		Tick: 400
 		ShadowStart: 29
-	make:
-		Frames: 6, 5, 4, 3, 2, 1
-		Length: 6
 	emp-overlay: emp_fx01
 		Length: *
 		Offset: 0, 0, 25
@@ -1199,6 +1192,8 @@ gactwr:
 		Start: 2
 		ShadowStart: 5
 		Tick: 400
+	invisible: null
+		UseTilesetCode: false
 	idle-lights: gtctwr_a
 		Length: 6
 		Tick: 200
@@ -1260,12 +1255,24 @@ gactwr:
 		-DepthSprite:
 
 gavulc:
+	place: gtctwr_b
+		Offset: 0, -12, 12
+		UseTilesetCode: true
+		Start: 28
 	icon: twr1icon
 
 garock:
+	place: gtctwr_c
+		Offset: 0, -12, 12
+		UseTilesetCode: true
+		Start: 28
 	icon: twr2icon
 
 gacsam:
+	place: gtctwr_d
+		Offset: 0, -12, 12
+		UseTilesetCode: true
+		Start: 28
 	icon: twr3icon
 
 gahpad:
@@ -1737,9 +1744,22 @@ gadept.gdi:
 		ZOffset: -1c511
 		Tick: 120
 		ZRamp: 1
-	crane: gtdept_c
-		Length: 16
+	crane-start: gtdept_c
+		Length: 6
 		Offset: 0, -36, 12
+		Tick: 60
+		DepthSprite: isodepth.shp
+	crane-loop: gtdept_c
+		Start: 6
+		Length: 5
+		Offset: 0, -36, 12
+		Tick: 60
+		DepthSprite: isodepth.shp
+	crane-end: gtdept_c
+		Start: 10
+		Length: 6
+		Offset: 0, -36, 12
+		Tick: 60
 		DepthSprite: isodepth.shp
 	platform: gtdept_d
 		Length: 7
@@ -1821,10 +1841,23 @@ gadept.nod:
 		ZOffset: -1c511
 		Tick: 120
 		ZRamp: 1
-	crane: gtdept_c
-		Length: 16
+	crane-start: gtdept_c
+		Length: 6
 		Offset: 0, -36, 12
 		DepthSprite: isodepth.shp
+		Tick: 60
+	crane-loop: gtdept_c
+		Start: 6
+		Length: 5
+		Offset: 0, -36, 12
+		DepthSprite: isodepth.shp
+		Tick: 60
+	crane-end: gtdept_c
+		Start: 10
+		Length: 6
+		Offset: 0, -36, 12
+		DepthSprite: isodepth.shp
+		Tick: 60
 	platform: gtdept_d
 		Length: 7
 		ZOffset: -1c511
@@ -1871,10 +1904,10 @@ namisl:
 	make: ntmislmk
 		Length: 18
 		ShadowStart: 18
-	active: ntmisl_a # TODO: This is an overlay, but currently used as animation
+	active: ntmisl_a
 		Length: 10
 		Tick: 80
-	damaged-active: ntmisl_a # TODO: This is an overlay, but currently used as animation
+	damaged-active: ntmisl_a
 		Start: 10
 		Length: 10
 		Tick: 80
@@ -1944,6 +1977,13 @@ gaplug:
 		Length: 15
 		Reverses: true
 		Tick: 120
+	idle-droppoda: gaplug_d
+		Length: 15
+		Tick: 120
+		Offset: -12, -42, 30
+	idle-droppodb: gaplug_d
+		Length: 15
+		Tick: 120
 	make: gtplugmk
 		Length: 17
 		ShadowStart: 17
@@ -1960,7 +2000,28 @@ gaplug:
 		-DepthSprite:
 
 gaplug2:
+	place: gtplug_e
+		Offset: 24,-48, 48
+		UseTilesetCode: true
+		Reverses: true
+		Length: 14
+		Tick: 120
 	icon: rad2icon
 
 gaplug3:
+	place: gtplug_f
+		Offset: 24,-48, 48
+		UseTilesetCode: true
+		Reverses: true
+		Length: 14
+		Tick: 120
 	icon: rad3icon
+
+gaplug4:
+	place: gtplug_d
+		Offset: 24,-48, 48
+		UseTilesetCode: true
+		Reverses: true
+		Length: 14
+		Tick: 120
+	icon: rad1icon

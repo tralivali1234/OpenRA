@@ -3,15 +3,15 @@ Container@PERF_WIDGETS:
 	Children:
 		Label@PERF_TEXT:
 			X: WINDOW_RIGHT - 200
-			Y: WINDOW_BOTTOM - 70
+			Y: WINDOW_BOTTOM - 69
 			Width: 170
 			Height: 40
 			Contrast: true
 		Background@GRAPH_BG:
 			ClickThrough: true
 			Background: dialog4
-			X: 30
-			Y: WINDOW_BOTTOM - 240
+			X: 10
+			Y: WINDOW_BOTTOM - 265
 			Width: 210
 			Height: 210
 			Children:

@@ -1,16 +1,21 @@
 orca:
+	Inherits: ^VehicleOverlays
 	icon: orcaicon
 
 orcab:
+	Inherits: ^VehicleOverlays
 	icon: obmbicon
 
 trnsport:
+	Inherits: ^VehicleOverlays
 	icon: otrnicon
 
 scrin:
+	Inherits: ^VehicleOverlays
 	icon: proicon
 
 apache:
+	Inherits: ^VehicleOverlays
 	icon: apchicon
 	rotor: lrotor
 		Length: 4
@@ -23,4 +28,11 @@ apache:
 		ZRamp: 1
 
 orcatran:
+	Inherits: ^VehicleOverlays
 	icon: crryicon
+
+pod:
+	Inherits: ^VehicleOverlays
+	idle:
+		Facings: 1
+		Length: 1

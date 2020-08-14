@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -11,13 +11,15 @@
 
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
+using OpenRA.Primitives;
 
 namespace OpenRA.Graphics
 {
 	public sealed class TerrainSpriteLayer : IDisposable
 	{
+		static readonly int[] CornerVertexMap = { 0, 1, 2, 2, 3, 0 };
+
 		public readonly Sheet Sheet;
 		public readonly BlendMode BlendMode;
 
@@ -25,6 +27,7 @@ namespace OpenRA.Graphics
 
 		readonly IVertexBuffer<Vertex> vertexBuffer;
 		readonly Vertex[] vertices;
+		readonly bool[] ignoreTint;
 		readonly HashSet<int> dirtyRows = new HashSet<int>();
 		readonly int rowStride;
 		readonly bool restrictToBounds;
@@ -46,10 +49,16 @@ namespace OpenRA.Graphics
 			rowStride = 6 * map.MapSize.X;
 
 			vertices = new Vertex[rowStride * map.MapSize.Y];
-			vertexBuffer = Game.Renderer.Device.CreateVertexBuffer(vertices.Length);
+			vertexBuffer = Game.Renderer.Context.CreateVertexBuffer(vertices.Length);
 			emptySprite = new Sprite(sheet, Rectangle.Empty, TextureChannel.Alpha);
 
 			wr.PaletteInvalidated += UpdatePaletteIndices;
+
+			if (wr.TerrainLighting != null)
+			{
+				ignoreTint = new bool[rowStride * map.MapSize.Y];
+				wr.TerrainLighting.CellChanged += UpdateTint;
+			}
 		}
 
 		void UpdatePaletteIndices()
@@ -59,22 +68,76 @@ namespace OpenRA.Graphics
 			for (var i = 0; i < vertices.Length; i++)
 			{
 				var v = vertices[i];
-				vertices[i] = new Vertex(v.X, v.Y, v.Z, v.S, v.T, v.U, v.V, palette.TextureIndex, v.C);
+				vertices[i] = new Vertex(v.X, v.Y, v.Z, v.S, v.T, v.U, v.V, palette.TextureIndex, v.C, v.R, v.G, v.B);
 			}
 
 			for (var row = 0; row < map.MapSize.Y; row++)
 				dirtyRows.Add(row);
 		}
 
-		public void Update(CPos cell, Sprite sprite)
+		public void Clear(CPos cell)
 		{
-			var xyz = sprite == null ? float3.Zero :
-				worldRenderer.Screen3DPosition(map.CenterOfCell(cell)) + sprite.Offset - 0.5f * sprite.Size;
-
-			Update(cell.ToMPos(map.Grid.Type), sprite, xyz);
+			Update(cell, null, true);
 		}
 
-		public void Update(MPos uv, Sprite sprite, float3 pos)
+		public void Update(CPos cell, ISpriteSequence sequence, int frame)
+		{
+			Update(cell, sequence.GetSprite(frame), sequence.IgnoreWorldTint);
+		}
+
+		public void Update(CPos cell, Sprite sprite, bool ignoreTint)
+		{
+			var xyz = float3.Zero;
+			if (sprite != null)
+			{
+				var cellOrigin = map.CenterOfCell(cell) - new WVec(0, 0, map.Grid.Ramps[map.Ramp[cell]].CenterHeightOffset);
+				xyz = worldRenderer.Screen3DPosition(cellOrigin) + sprite.Offset - 0.5f * sprite.Size;
+			}
+
+			Update(cell.ToMPos(map.Grid.Type), sprite, xyz, ignoreTint);
+		}
+
+		void UpdateTint(MPos uv)
+		{
+			var offset = rowStride * uv.V + 6 * uv.U;
+			if (ignoreTint[offset])
+			{
+				var noTint = float3.Ones;
+				for (var i = 0; i < 6; i++)
+				{
+					var v = vertices[offset + i];
+					vertices[offset + i] = new Vertex(v.X, v.Y, v.Z, v.S, v.T, v.U, v.V, palette.TextureIndex, v.C, noTint);
+				}
+
+				return;
+			}
+
+			// Allow the terrain tint to vary linearly across the cell to smooth out the staircase effect
+			// This is done by sampling the lighting the corners of the sprite, even though those pixels are
+			// transparent for isometric tiles
+			var tl = worldRenderer.TerrainLighting;
+			var pos = map.CenterOfCell(uv.ToCPos(map));
+			var step = map.Grid.Type == MapGridType.RectangularIsometric ? 724 : 512;
+			var weights = new[]
+			{
+				tl.TintAt(pos + new WVec(-step, -step, 0)),
+				tl.TintAt(pos + new WVec(step, -step, 0)),
+				tl.TintAt(pos + new WVec(step, step, 0)),
+				tl.TintAt(pos + new WVec(-step, step, 0))
+			};
+
+			// Apply tint directly to the underlying vertices
+			// This saves us from having to re-query the sprite information, which has not changed
+			for (var i = 0; i < 6; i++)
+			{
+				var v = vertices[offset + i];
+				vertices[offset + i] = new Vertex(v.X, v.Y, v.Z, v.S, v.T, v.U, v.V, palette.TextureIndex, v.C, weights[CornerVertexMap[i]]);
+			}
+
+			dirtyRows.Add(uv.V);
+		}
+
+		public void Update(MPos uv, Sprite sprite, float3 pos, bool ignoreTint)
 		{
 			if (sprite != null)
 			{
@@ -92,7 +155,13 @@ namespace OpenRA.Graphics
 				return;
 
 			var offset = rowStride * uv.V + 6 * uv.U;
-			Util.FastCreateQuad(vertices, pos, sprite, palette.TextureIndex, offset, sprite.Size);
+			Util.FastCreateQuad(vertices, pos, sprite, int2.Zero, palette.TextureIndex, offset, sprite.Size, float3.Ones);
+
+			if (worldRenderer.TerrainLighting != null)
+			{
+				this.ignoreTint[offset] = ignoreTint;
+				UpdateTint(uv);
+			}
 
 			dirtyRows.Add(uv.V);
 		}
@@ -135,6 +204,9 @@ namespace OpenRA.Graphics
 		public void Dispose()
 		{
 			worldRenderer.PaletteInvalidated -= UpdatePaletteIndices;
+			if (worldRenderer.TerrainLighting != null)
+				worldRenderer.TerrainLighting.CellChanged -= UpdateTint;
+
 			vertexBuffer.Dispose();
 		}
 	}

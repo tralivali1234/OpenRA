@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -9,8 +9,8 @@
  */
 #endregion
 
-using System.Collections.Generic;
 using System.Linq;
+using OpenRA.Primitives;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
@@ -19,8 +19,8 @@ namespace OpenRA.Mods.Common.Traits
 	public class TargetableInfo : ConditionalTraitInfo, ITargetableInfo
 	{
 		[Desc("Target type. Used for filtering (in)valid targets.")]
-		public readonly HashSet<string> TargetTypes = new HashSet<string>();
-		public HashSet<string> GetTargetTypes() { return TargetTypes; }
+		public readonly BitSet<TargetableType> TargetTypes;
+		public BitSet<TargetableType> GetTargetTypes() { return TargetTypes; }
 
 		public bool RequiresForceFire = false;
 
@@ -53,7 +53,7 @@ namespace OpenRA.Mods.Common.Traits
 			return cloaks.All(c => c.IsTraitDisabled || c.IsVisible(self, viewer.Owner));
 		}
 
-		public virtual HashSet<string> TargetTypes { get { return Info.TargetTypes; } }
+		public virtual BitSet<TargetableType> TargetTypes { get { return Info.TargetTypes; } }
 
 		public bool RequiresForceFire { get { return Info.RequiresForceFire; } }
 	}

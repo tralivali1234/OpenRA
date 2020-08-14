@@ -3,7 +3,6 @@ CABHUT:
 	Tooltip:
 		Name: Bridge repair hut
 	Building:
-		Adjacent: 0
 		Footprint: x
 		Dimensions: 1, 1
 	BridgeHut:
@@ -12,24 +11,35 @@ CABHUT:
 		Palette: player
 	Targetable:
 		TargetTypes: C4
-	-SelectionDecorations:
+	-IsometricSelectable:
+	-IsometricSelectionDecorations:
+	Interactable:
+	SelectionDecorations:
 	-Demolishable:
 	-Explodes:
+	-FrozenUnderFog:
+	HiddenUnderShroud:
+	MapEditorData:
+		Categories: Bridge
 
 ^LowBridgeRamp:
 	AlwaysVisible:
 	RenderSprites:
 		Palette: terraindecoration
 	WithSpriteBody:
-	AutoSelectionSize:
 	AppearsOnRadar:
 	RadarColorFromTerrain:
+		Terrain: Bridge
+	AppearsOnMapPreview:
 		Terrain: Bridge
 	BodyOrientation:
 		UseClassicPerspectiveFudge: false
 		QuantizedFacings: 1
 	Tooltip:
 		Name: Bridge
+	MapEditorData:
+		Categories: Bridge
+	Interactable:
 
 ^LowBridge:
 	Inherits: ^LowBridgeRamp
@@ -37,9 +47,10 @@ CABHUT:
 		TargetTypes: Ground, Building, Bridge
 		RequiresForceFire: true
 	Health:
-		HP: 500
+		HP: 50000
 	Armor:
 		Type: Concrete
+	HitShape:
 
 LOBRDG_A:
 	Inherits: ^LowBridge
@@ -58,6 +69,9 @@ LOBRDG_A:
 		ADestroyedSequences: adead
 		BDestroyedSequences: bdead
 		ABDestroyedSequences: abdead
+	ShakeOnDeath:
+		Duration: 15
+		Intensity: 6
 
 LOBRDG_A_D:
 	Inherits: LOBRDG_A
@@ -74,8 +88,8 @@ LOBRDG_A_D:
 		RampActors: lobrdg_r_ne, lobrdg_r_sw
 		AOffset: 1,-1
 		BOffset: 1,1
-	CustomSelectionSize:
-		CustomBounds: 96, 48
+	Interactable:
+		Bounds: 96, 48
 
 LOBRDG_B:
 	Inherits: ^LowBridge
@@ -94,6 +108,9 @@ LOBRDG_B:
 		ADestroyedSequences: adead
 		BDestroyedSequences: bdead
 		ABDestroyedSequences: abdead
+	ShakeOnDeath:
+		Duration: 15
+		Intensity: 6
 
 LOBRDG_B_D:
 	Inherits: LOBRDG_B
@@ -110,8 +127,8 @@ LOBRDG_B_D:
 		RampActors: lobrdg_r_nw, lobrdg_r_se
 		AOffset: 1,1
 		BOffset: -1,1
-	CustomSelectionSize:
-		CustomBounds: 96, 48
+	Interactable:
+		Bounds: 96, 48
 
 LOBRDG_R_SE:
 	Inherits: ^LowBridgeRamp
@@ -158,9 +175,10 @@ LOBRDG_R_SW:
 	RenderSprites:
 		Palette: terraindecoration
 	WithSpriteBody:
-	AutoSelectionSize:
 	AppearsOnRadar:
 	RadarColorFromTerrain:
+		Terrain: Bridge
+	AppearsOnMapPreview:
 		Terrain: Bridge
 	BodyOrientation:
 		UseClassicPerspectiveFudge: false
@@ -169,8 +187,10 @@ LOBRDG_R_SW:
 		Name: Bridge
 	Immobile:
 		OccupiesSpace: false
-	CustomSelectionSize:
-		CustomBounds: 96, 144
+	MapEditorData:
+		Categories: Bridge
+	Interactable:
+		Bounds: 96, 144
 
 BRIDGE1:
 	Inherits: ^ElevatedBridgePlaceholder

@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -16,7 +16,7 @@ using OpenRA.Mods.Cnc.Traits;
 
 namespace OpenRA.Mods.Cnc.Effects
 {
-	class SatelliteLaunch : IEffect
+	class SatelliteLaunch : IEffect, ISpatiallyPartitionable
 	{
 		readonly GpsPowerInfo info;
 		readonly Actor launcher;
@@ -31,19 +31,21 @@ namespace OpenRA.Mods.Cnc.Effects
 
 			doors = new Animation(launcher.World, info.DoorImage);
 			doors.PlayThen(info.DoorSequence,
-				() => launcher.World.AddFrameEndTask(w => w.Remove(this)));
+				() => launcher.World.AddFrameEndTask(w => { w.Remove(this); w.ScreenMap.Remove(this); }));
 
 			pos = launcher.CenterPosition;
+			launcher.World.ScreenMap.Add(this, pos, doors.Image);
 		}
 
 		public void Tick(World world)
 		{
 			doors.Tick();
+			world.ScreenMap.Update(this, pos, doors.Image);
 
 			if (++frame == 19)
 			{
 				var palette = info.SatellitePaletteIsPlayerPalette ? info.SatellitePalette + launcher.Owner.InternalName : info.SatellitePalette;
-				world.AddFrameEndTask(w => w.Add(new GpsSatellite(world, pos, info.SatelliteImage, info.SatelliteSequence, palette, info.RevealDelay * 25, launcher.Owner)));
+				world.AddFrameEndTask(w => w.Add(new GpsSatellite(world, pos, info.SatelliteImage, info.SatelliteSequence, palette, info.RevealDelay, launcher.Owner)));
 			}
 		}
 

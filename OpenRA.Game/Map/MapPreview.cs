@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -11,14 +11,13 @@
 
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading;
+using OpenRA.FileFormats;
 using OpenRA.FileSystem;
 using OpenRA.Graphics;
 using OpenRA.Primitives;
@@ -28,7 +27,14 @@ namespace OpenRA
 	public enum MapStatus { Available, Unavailable, Searching, DownloadAvailable, Downloading, DownloadError }
 
 	// Used for grouping maps in the UI
-	public enum MapClassification { Unknown, System, User, Remote }
+	[Flags]
+	public enum MapClassification
+	{
+		Unknown = 0,
+		System = 1,
+		User = 2,
+		Remote = 4
+	}
 
 	// Used for verifying map availability in the lobby
 	public enum MapRuleStatus { Unknown, Cached, Invalid }
@@ -49,7 +55,7 @@ namespace OpenRA
 		public readonly string[] categories;
 		public readonly int players;
 		public readonly Rectangle bounds;
-		public readonly int[] spawnpoints = { };
+		public readonly short[] spawnpoints = { };
 		public readonly MapGridType map_grid_type;
 		public readonly string minimap;
 		public readonly bool downloading;
@@ -72,7 +78,7 @@ namespace OpenRA
 			public CPos[] SpawnPoints;
 			public MapGridType GridType;
 			public Rectangle Bounds;
-			public Bitmap Preview;
+			public Png Preview;
 			public MapStatus Status;
 			public MapClassification Class;
 			public MapVisibility Visibility;
@@ -141,7 +147,7 @@ namespace OpenRA
 		public CPos[] SpawnPoints { get { return innerData.SpawnPoints; } }
 		public MapGridType GridType { get { return innerData.GridType; } }
 		public Rectangle Bounds { get { return innerData.Bounds; } }
-		public Bitmap Preview { get { return innerData.Preview; } }
+		public Png Preview { get { return innerData.Preview; } }
 		public MapStatus Status { get { return innerData.Status; } }
 		public MapClassification Class { get { return innerData.Class; } }
 		public MapVisibility Visibility { get { return innerData.Visibility; } }
@@ -270,7 +276,7 @@ namespace OpenRA
 					foreach (var kv in actorDefinitions.Nodes.Where(d => d.Value.Value == "mpspawn"))
 					{
 						var s = new ActorReference(kv.Value.Value, kv.Value.ToDictionary());
-						spawns.Add(s.InitDict.Get<LocationInit>().Value(null));
+						spawns.Add(s.Get<LocationInit>().Value);
 					}
 
 					newData.SpawnPoints = spawns.ToArray();
@@ -307,8 +313,9 @@ namespace OpenRA
 				var musicDefinitions = LoadRuleSection(yaml, "Music");
 				var notificationDefinitions = LoadRuleSection(yaml, "Notifications");
 				var sequenceDefinitions = LoadRuleSection(yaml, "Sequences");
+				var modelSequenceDefinitions = LoadRuleSection(yaml, "ModelSequences");
 				var rules = Ruleset.Load(modData, this, TileSet, ruleDefinitions, weaponDefinitions,
-					voiceDefinitions, notificationDefinitions, musicDefinitions, sequenceDefinitions);
+					voiceDefinitions, notificationDefinitions, musicDefinitions, sequenceDefinitions, modelSequenceDefinitions);
 				var flagged = Ruleset.DefinesUnsafeCustomRules(modData, this, ruleDefinitions,
 					weaponDefinitions, voiceDefinitions, notificationDefinitions, sequenceDefinitions);
 				return Pair.New(rules, flagged);
@@ -316,7 +323,7 @@ namespace OpenRA
 
 			if (p.Contains("map.png"))
 				using (var dataStream = p.GetStream("map.png"))
-					newData.Preview = new Bitmap(dataStream);
+					newData.Preview = new Png(dataStream);
 
 			// Assign the new data atomically
 			innerData = newData;
@@ -369,7 +376,7 @@ namespace OpenRA
 					newData.GridType = r.map_grid_type;
 					try
 					{
-						newData.Preview = new Bitmap(new MemoryStream(Convert.FromBase64String(r.minimap)));
+						newData.Preview = new Png(new MemoryStream(Convert.FromBase64String(r.minimap)));
 					}
 					catch (Exception e)
 					{
@@ -390,8 +397,9 @@ namespace OpenRA
 						var musicDefinitions = LoadRuleSection(rulesYaml, "Music");
 						var notificationDefinitions = LoadRuleSection(rulesYaml, "Notifications");
 						var sequenceDefinitions = LoadRuleSection(rulesYaml, "Sequences");
+						var modelSequenceDefinitions = LoadRuleSection(rulesYaml, "ModelSequences");
 						var rules = Ruleset.Load(modData, this, TileSet, ruleDefinitions, weaponDefinitions,
-							voiceDefinitions, notificationDefinitions, musicDefinitions, sequenceDefinitions);
+							voiceDefinitions, notificationDefinitions, musicDefinitions, sequenceDefinitions, modelSequenceDefinitions);
 						var flagged = Ruleset.DefinesUnsafeCustomRules(modData, this, ruleDefinitions,
 							weaponDefinitions, voiceDefinitions, notificationDefinitions, sequenceDefinitions);
 						return Pair.New(rules, flagged);
@@ -418,7 +426,7 @@ namespace OpenRA
 
 		public void Install(string mapRepositoryUrl, Action onSuccess)
 		{
-			if (Status != MapStatus.DownloadAvailable || !Game.Settings.Game.AllowDownloading)
+			if ((Status != MapStatus.DownloadError && Status != MapStatus.DownloadAvailable) || !Game.Settings.Game.AllowDownloading)
 				return;
 
 			innerData.Status = MapStatus.Downloading;
@@ -471,7 +479,7 @@ namespace OpenRA
 						Log.Write("debug", "Downloaded map to '{0}'", mapFilename);
 						Game.RunAfterTick(() =>
 						{
-							var package = modData.ModFiles.OpenPackage(mapFilename, mapInstallPackage);
+							var package = mapInstallPackage.OpenPackage(mapFilename, modData.ModFiles);
 							if (package == null)
 								innerData.Status = MapStatus.DownloadError;
 							else
@@ -558,6 +566,15 @@ namespace OpenRA
 				return true;
 
 			return modData.DefaultFileSystem.Exists(filename);
+		}
+
+		bool IReadOnlyFileSystem.IsExternalModFile(string filename)
+		{
+			// Explicit package paths never refer to a map
+			if (filename.Contains("|"))
+				return modData.DefaultFileSystem.IsExternalModFile(filename);
+
+			return false;
 		}
 	}
 }

@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -11,8 +11,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Drawing;
+using System.IO;
 using System.Linq;
+using OpenRA.Primitives;
 using OpenRA.Support;
 
 namespace OpenRA.Graphics
@@ -34,7 +35,7 @@ namespace OpenRA.Graphics
 	public sealed class Theater : IDisposable
 	{
 		readonly Dictionary<ushort, TheaterTemplate> templates = new Dictionary<ushort, TheaterTemplate>();
-		readonly SheetBuilder sheetBuilder;
+		SheetBuilder sheetBuilder;
 		readonly Sprite missingTile;
 		readonly MersenneTwister random;
 		TileSet tileset;
@@ -53,7 +54,6 @@ namespace OpenRA.Graphics
 				return new Sheet(SheetType.Indexed, new Size(tileset.SheetSize, tileset.SheetSize));
 			};
 
-			sheetBuilder = new SheetBuilder(SheetType.Indexed, allocate);
 			random = new MersenneTwister();
 
 			var frameCache = new FrameCache(Game.ModData.DefaultFileSystem, Game.ModData.SpriteLoaders);
@@ -75,6 +75,15 @@ namespace OpenRA.Graphics
 						var zOffset = tile != null ? -tile.ZOffset : 0;
 						var zRamp = tile != null ? tile.ZRamp : 1f;
 						var offset = new float3(f.Offset, zOffset);
+						var type = SheetBuilder.FrameTypeToSheetType(f.Type);
+
+						// Defer SheetBuilder creation until we know what type of frames we are loading!
+						// TODO: Support mixed indexed and BGRA frames
+						if (sheetBuilder == null)
+							sheetBuilder = new SheetBuilder(SheetBuilder.FrameTypeToSheetType(f.Type), allocate);
+						else if (type != sheetBuilder.Type)
+							throw new InvalidDataException("Sprite type mismatch. Terrain sprites must all be either Indexed or RGBA.");
+
 						var s = sheetBuilder.Allocate(f.Size, zRamp, offset);
 						Util.FastCopyIntoChannel(s, f.Data);
 
@@ -85,7 +94,7 @@ namespace OpenRA.Graphics
 
 							// s and ss are guaranteed to use the same sheet
 							// because of the custom terrain sheet allocation
-							s = new SpriteWithSecondaryData(s, ss.Bounds, ss.Channel);
+							s = new SpriteWithSecondaryData(s, s.Sheet, ss.Bounds, ss.Channel);
 						}
 
 						return s;
@@ -102,7 +111,7 @@ namespace OpenRA.Graphics
 			}
 
 			// 1x1px transparent tile
-			missingTile = sheetBuilder.Add(new byte[1], new Size(1, 1));
+			missingTile = sheetBuilder.Add(new byte[sheetBuilder.Type == SheetType.BGRA ? 4 : 1], new Size(1, 1));
 
 			Sheet.ReleaseBuffer();
 		}

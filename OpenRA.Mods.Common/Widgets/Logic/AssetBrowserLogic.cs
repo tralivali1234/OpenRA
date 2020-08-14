@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -37,11 +37,11 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 		ScrollItemWidget template;
 
 		IReadOnlyPackage assetSource = null;
-		List<string> availableShps = new List<string>();
 		bool animateFrames = false;
 
 		string currentPalette;
 		string currentFilename;
+		IReadOnlyPackage currentPackage;
 		Sprite[] currentSprites;
 		VqaPlayerWidget player = null;
 		bool isVideoLoaded = false;
@@ -112,11 +112,11 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			{
 				colorDropdown.IsDisabled = () => currentPalette != colorPreview.PaletteName;
 				colorDropdown.OnMouseDown = _ => ColorPickerLogic.ShowColorDropDown(colorDropdown, colorPreview, world);
-				panel.Get<ColorBlockWidget>("COLORBLOCK").GetColor = () => Game.Settings.Player.Color.RGB;
+				panel.Get<ColorBlockWidget>("COLORBLOCK").GetColor = () => Game.Settings.Player.Color;
 			}
 
 			filenameInput = panel.Get<TextFieldWidget>("FILENAME_INPUT");
-			filenameInput.OnTextEdited = () => ApplyFilter(filenameInput.Text);
+			filenameInput.OnTextEdited = () => ApplyFilter();
 			filenameInput.OnEscKey = filenameInput.YieldKeyboardFocus;
 
 			var frameContainer = panel.GetOrNull("FRAME_SELECTOR");
@@ -149,7 +149,6 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			var playButton = panel.GetOrNull<ButtonWidget>("BUTTON_PLAY");
 			if (playButton != null)
 			{
-				playButton.Key = new Hotkey(Keycode.SPACE, Modifiers.None);
 				playButton.OnClick = () =>
 				{
 					if (isVideoLoaded)
@@ -164,7 +163,6 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			var pauseButton = panel.GetOrNull<ButtonWidget>("BUTTON_PAUSE");
 			if (pauseButton != null)
 			{
-				pauseButton.Key = new Hotkey(Keycode.SPACE, Modifiers.None);
 				pauseButton.OnClick = () =>
 				{
 					if (isVideoLoaded)
@@ -179,7 +177,6 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			var stopButton = panel.GetOrNull<ButtonWidget>("BUTTON_STOP");
 			if (stopButton != null)
 			{
-				stopButton.Key = new Hotkey(Keycode.RETURN, Modifiers.None);
 				stopButton.OnClick = () =>
 				{
 					if (isVideoLoaded)
@@ -196,7 +193,6 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			var nextButton = panel.GetOrNull<ButtonWidget>("BUTTON_NEXT");
 			if (nextButton != null)
 			{
-				nextButton.Key = new Hotkey(Keycode.RIGHT, Modifiers.None);
 				nextButton.OnClick = () =>
 				{
 					if (!isVideoLoaded)
@@ -209,7 +205,6 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			var prevButton = panel.GetOrNull<ButtonWidget>("BUTTON_PREV");
 			if (prevButton != null)
 			{
-				prevButton.Key = new Hotkey(Keycode.LEFT, Modifiers.None);
 				prevButton.OnClick = () =>
 				{
 					if (!isVideoLoaded)
@@ -219,10 +214,8 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 				prevButton.IsVisible = () => !isVideoLoaded;
 			}
 
-			if (logicArgs.ContainsKey("SupportedFormats"))
-				allowedExtensions = FieldLoader.GetValue<string[]>("SupportedFormats", logicArgs["SupportedFormats"].Value);
-			else
-				allowedExtensions = new string[0];
+			var assetBrowserModData = modData.Manifest.Get<AssetBrowser>();
+			allowedExtensions = assetBrowserModData.SupportedExtensions;
 
 			acceptablePackages = modData.ModFiles.MountedPackages.Where(p =>
 				p.Contents.Any(c => allowedExtensions.Contains(Path.GetExtension(c).ToLowerInvariant())));
@@ -271,7 +264,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			return false;
 		}
 
-		void ApplyFilter(string filename)
+		void ApplyFilter()
 		{
 			assetVisByName.Clear();
 			assetList.Layout.AdjustChildren();
@@ -279,18 +272,22 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 
 			// Select the first visible
 			var firstVisible = assetVisByName.FirstOrDefault(kvp => kvp.Value);
-			if (firstVisible.Key != null)
-				LoadAsset(firstVisible.Key);
+			IReadOnlyPackage package;
+			string filename;
+
+			if (firstVisible.Key != null && modData.DefaultFileSystem.TryGetPackageContaining(firstVisible.Key, out package, out filename))
+				LoadAsset(package, filename);
 		}
 
-		void AddAsset(ScrollPanelWidget list, string filepath, ScrollItemWidget template)
+		void AddAsset(ScrollPanelWidget list, string filepath, IReadOnlyPackage package, ScrollItemWidget template)
 		{
-			var filename = Path.GetFileName(filepath);
 			var item = ScrollItemWidget.Setup(template,
-				() => currentFilename == filename,
-				() => { LoadAsset(filename); });
+				() => currentFilename == filepath && currentPackage == package,
+				() => { LoadAsset(package, filepath); });
 
-			item.Get<LabelWidget>("TITLE").GetText = () => filepath;
+			var label = item.Get<LabelWithTooltipWidget>("TITLE");
+			WidgetUtils.TruncateLabelToTooltip(label, filepath);
+
 			item.IsVisible = () =>
 			{
 				bool visible;
@@ -305,7 +302,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			list.AddChild(item);
 		}
 
-		bool LoadAsset(string filename)
+		bool LoadAsset(IReadOnlyPackage package, string filename)
 		{
 			if (isVideoLoaded)
 			{
@@ -317,18 +314,29 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			if (string.IsNullOrEmpty(filename))
 				return false;
 
-			if (!modData.DefaultFileSystem.Exists(filename))
+			if (!package.Contains(filename))
 				return false;
 
 			isLoadError = false;
 
 			try
 			{
+				currentPackage = package;
+				currentFilename = filename;
+				var prefix = "";
+				var fs = modData.DefaultFileSystem as OpenRA.FileSystem.FileSystem;
+
+				if (fs != null)
+				{
+					prefix = fs.GetPrefix(package);
+					if (prefix != null)
+						prefix += "|";
+				}
+
 				if (Path.GetExtension(filename.ToLowerInvariant()) == ".vqa")
 				{
 					player = panel.Get<VqaPlayerWidget>("PLAYER");
-					currentFilename = filename;
-					player.Load(filename);
+					player.Load(prefix + filename);
 					player.DrawOverlay = false;
 					isVideoLoaded = true;
 					frameSlider.MaximumValue = (float)player.Video.Frames - 1;
@@ -336,8 +344,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 					return true;
 				}
 
-				currentFilename = filename;
-				currentSprites = world.Map.Rules.Sequences.SpriteCache[filename];
+				currentSprites = world.Map.Rules.Sequences.SpriteCache[prefix + filename];
 				currentFrame = 0;
 				frameSlider.MaximumValue = (float)currentSprites.Length - 1;
 				frameSlider.Ticks = currentSprites.Length;
@@ -373,16 +380,33 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 		void PopulateAssetList()
 		{
 			assetList.RemoveChildren();
-			availableShps.Clear();
 
-			var files = assetSource != null ? assetSource.Contents : modData.ModFiles.MountedPackages.SelectMany(f => f.Contents).Distinct();
-			foreach (var file in files.OrderBy(s => s))
+			var files = new SortedList<string, List<IReadOnlyPackage>>();
+
+			if (assetSource != null)
+				foreach (var content in assetSource.Contents)
+					files.Add(content, new List<IReadOnlyPackage> { assetSource });
+			else
 			{
-				if (allowedExtensions.Any(ext => file.EndsWith(ext, true, CultureInfo.InvariantCulture)))
+				foreach (var mountedPackage in modData.ModFiles.MountedPackages)
 				{
-					AddAsset(assetList, file, template);
-					availableShps.Add(file);
+					foreach (var content in mountedPackage.Contents)
+					{
+						if (!files.ContainsKey(content))
+							files.Add(content, new List<IReadOnlyPackage> { mountedPackage });
+						else
+							files[content].Add(mountedPackage);
+					}
 				}
+			}
+
+			foreach (var file in files.OrderBy(s => s.Key))
+			{
+				if (!allowedExtensions.Any(ext => file.Key.EndsWith(ext, true, CultureInfo.InvariantCulture)))
+					continue;
+
+				foreach (var package in file.Value)
+					AddAsset(assetList, file.Key, package, template);
 			}
 		}
 

@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -19,7 +19,7 @@ namespace OpenRA.Mods.Common.Lint
 {
 	public class CheckPlayers : ILintMapPass
 	{
-		public void Run(Action<string> emitError, Action<string> emitWarning, Map map)
+		public void Run(Action<string> emitError, Action<string> emitWarning, ModData modData, Map map)
 		{
 			var players = new MapPlayers(map.PlayerDefinitions).Players;
 			var worldOwnerFound = false;
@@ -44,6 +44,11 @@ namespace OpenRA.Mods.Common.Lint
 					if (player.Playable)
 						emitError("The player {0} owning the world can't be playable.".F(player.Name));
 				}
+				else if (map.Visibility == MapVisibility.MissionSelector && player.Playable && !player.LockFaction)
+				{
+					// Missions must lock the faction of the player to force the server to override the default Random faction
+					emitError("The player {0} must specify LockFaction: True.".F(player.Name));
+				}
 			}
 
 			if (!worldOwnerFound)
@@ -63,7 +68,7 @@ namespace OpenRA.Mods.Common.Lint
 				foreach (var kv in map.ActorDefinitions.Where(d => d.Value.Value == "mpspawn"))
 				{
 					var s = new ActorReference(kv.Value.Value, kv.Value.ToDictionary());
-					spawns.Add(s.InitDict.Get<LocationInit>().Value(null));
+					spawns.Add(s.Get<LocationInit>().Value);
 				}
 
 				if (playerCount > spawns.Count)
@@ -73,22 +78,27 @@ namespace OpenRA.Mods.Common.Lint
 					emitError("Duplicate spawn point locations detected.");
 			}
 
+			// Check for actors that require specific owners
+			var actorsWithRequiredOwner = map.Rules.Actors
+				.Where(a => a.Value.HasTraitInfo<RequiresSpecificOwnersInfo>())
+				.ToDictionary(a => a.Key, a => a.Value.TraitInfo<RequiresSpecificOwnersInfo>());
+
 			foreach (var kv in map.ActorDefinitions)
 			{
 				var actorReference = new ActorReference(kv.Value.Value, kv.Value.ToDictionary());
-				var ownerInit = actorReference.InitDict.GetOrDefault<OwnerInit>();
+				var ownerInit = actorReference.GetOrDefault<OwnerInit>();
 				if (ownerInit == null)
 					emitError("Actor {0} is not owned by any player.".F(kv.Key));
 				else
 				{
-					var ownerName = ownerInit.PlayerName;
+					var ownerName = ownerInit.InternalName;
 					if (!playerNames.Contains(ownerName))
 						emitError("Actor {0} is owned by unknown player {1}.".F(kv.Key, ownerName));
-					else if (kv.Value.Value == "mpspawn" && !players[ownerName].OwnsWorld)
-					{
-						emitError("Actor {0} needs to be owned by the player that owns the world. ".F(kv.Key) +
-							"Use the `Spawn` and `LockSpawn` player properties to force players onto a particular spawn instead.");
-					}
+
+					RequiresSpecificOwnersInfo info;
+					if (actorsWithRequiredOwner.TryGetValue(kv.Value.Value, out info))
+						if (!info.ValidOwnerNames.Contains(ownerName))
+							emitError("Actor {0} owner {1} is not one of ValidOwnerNames: {2}".F(kv.Key, ownerName, info.ValidOwnerNames.JoinWith(", ")));
 				}
 			}
 		}

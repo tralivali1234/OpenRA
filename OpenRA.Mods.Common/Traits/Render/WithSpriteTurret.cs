@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -22,11 +22,16 @@ namespace OpenRA.Mods.Common.Traits.Render
 	public class WithSpriteTurretInfo : ConditionalTraitInfo, IRenderActorPreviewSpritesInfo,
 		Requires<RenderSpritesInfo>, Requires<TurretedInfo>, Requires<BodyOrientationInfo>, Requires<ArmamentInfo>
 	{
+		[SequenceReference]
 		[Desc("Sequence name to use")]
-		[SequenceReference] public readonly string Sequence = "turret";
+		public readonly string Sequence = "turret";
 
-		[Desc("Sequence name to use when prepared to fire")]
-		[SequenceReference] public readonly string AimSequence = null;
+		[PaletteReference("IsPlayerPalette")]
+		[Desc("Custom palette name")]
+		public readonly string Palette = null;
+
+		[Desc("Palette is a player palette BaseName")]
+		public readonly bool IsPlayerPalette = false;
 
 		[Desc("Turreted 'Turret' key to display")]
 		public readonly string Turret = "primary";
@@ -45,12 +50,12 @@ namespace OpenRA.Mods.Common.Traits.Render
 			var t = init.Actor.TraitInfos<TurretedInfo>()
 				.First(tt => tt.Turret == Turret);
 
-			var turretFacing = Turreted.TurretFacingFromInit(init, t.InitialFacing, Turret);
+			var turretFacing = t.WorldFacingFromInit(init);
 			var anim = new Animation(init.World, image, turretFacing);
 			anim.Play(RenderSprites.NormalizeSequence(anim, init.GetDamageState(), Sequence));
 
-			Func<int> facing = init.GetFacing();
-			Func<WRot> orientation = () => body.QuantizeOrientation(WRot.FromFacing(facing()), facings);
+			var facing = init.GetFacing();
+			Func<WRot> orientation = () => body.QuantizeOrientation(WRot.FromYaw(facing()), facings);
 			Func<WVec> offset = () => body.LocalToWorld(t.Offset.Rotate(orientation()));
 			Func<int> zOffset = () =>
 			{
@@ -58,54 +63,52 @@ namespace OpenRA.Mods.Common.Traits.Render
 				return -(tmpOffset.Y + tmpOffset.Z) + 1;
 			};
 
+			if (IsPlayerPalette)
+				p = init.WorldRenderer.Palette(Palette + init.Get<OwnerInit>().InternalName);
+			else if (Palette != null)
+				p = init.WorldRenderer.Palette(Palette);
+
 			yield return new SpriteActorPreview(anim, offset, zOffset, p, rs.Scale);
 		}
 	}
 
-	public class WithSpriteTurret : ConditionalTrait<WithSpriteTurretInfo>, INotifyBuildComplete, INotifySold, INotifyTransform, ITick, INotifyDamageStateChanged
+	public class WithSpriteTurret : ConditionalTrait<WithSpriteTurretInfo>, INotifyDamageStateChanged
 	{
 		public readonly Animation DefaultAnimation;
-		protected readonly AttackBase Attack;
 		readonly RenderSprites rs;
 		readonly BodyOrientation body;
 		readonly Turreted t;
 		readonly Armament[] arms;
-
-		// TODO: This should go away once https://github.com/OpenRA/OpenRA/issues/7035 is implemented
-		bool buildComplete;
 
 		public WithSpriteTurret(Actor self, WithSpriteTurretInfo info)
 			: base(info)
 		{
 			rs = self.Trait<RenderSprites>();
 			body = self.Trait<BodyOrientation>();
-			Attack = self.TraitOrDefault<AttackBase>();
 			t = self.TraitsImplementing<Turreted>()
 				.First(tt => tt.Name == info.Turret);
 			arms = self.TraitsImplementing<Armament>()
 				.Where(w => w.Info.Turret == info.Turret).ToArray();
-			buildComplete = !self.Info.HasTraitInfo<BuildingInfo>(); // always render instantly for units
 
-			DefaultAnimation = new Animation(self.World, rs.GetImage(self), () => t.TurretFacing);
+			DefaultAnimation = new Animation(self.World, rs.GetImage(self), () => t.WorldOrientation.Yaw);
 			DefaultAnimation.PlayRepeating(NormalizeSequence(self, info.Sequence));
 			rs.Add(new AnimationWithOffset(DefaultAnimation,
 				() => TurretOffset(self),
-				() => IsTraitDisabled || !buildComplete,
-				p => RenderUtils.ZOffsetFromCenter(self, p, 1)));
+				() => IsTraitDisabled,
+				p => RenderUtils.ZOffsetFromCenter(self, p, 1)), info.Palette, info.IsPlayerPalette);
 
 			// Restrict turret facings to match the sprite
 			t.QuantizedFacings = DefaultAnimation.CurrentSequence.Facings;
 		}
 
-		WVec TurretOffset(Actor self)
+		protected virtual WVec TurretOffset(Actor self)
 		{
 			if (!Info.Recoils)
 				return t.Position(self);
 
-			var recoil = arms.Aggregate(WDist.Zero, (a, b) => a + b.Recoil);
-			var localOffset = new WVec(-recoil, WDist.Zero, WDist.Zero);
-			var quantizedWorldTurret = t.WorldOrientation(self);
-			return t.Position(self) + body.LocalToWorld(localOffset.Rotate(quantizedWorldTurret));
+			var recoilDist = arms.Aggregate(WDist.Zero, (a, b) => a + b.Recoil);
+			var recoil = new WVec(-recoilDist, WDist.Zero, WDist.Zero);
+			return t.Position(self) + body.LocalToWorld(recoil.Rotate(t.WorldOrientation));
 		}
 
 		public string NormalizeSequence(Actor self, string sequence)
@@ -119,31 +122,16 @@ namespace OpenRA.Mods.Common.Traits.Render
 				DefaultAnimation.ReplaceAnim(NormalizeSequence(self, DefaultAnimation.CurrentSequence.Name));
 		}
 
-		protected virtual void Tick(Actor self)
-		{
-			if (Info.AimSequence == null)
-				return;
-
-			var sequence = Attack.IsAttacking ? Info.AimSequence : Info.Sequence;
-			DefaultAnimation.ReplaceAnim(sequence);
-		}
-
 		void INotifyDamageStateChanged.DamageStateChanged(Actor self, AttackInfo e)
 		{
 			DamageStateChanged(self);
-		}
-
-		void ITick.Tick(Actor self)
-		{
-			// Split into a protected method to allow subclassing
-			Tick(self);
 		}
 
 		public void PlayCustomAnimation(Actor self, string name, Action after = null)
 		{
 			DefaultAnimation.PlayThen(NormalizeSequence(self, name), () =>
 			{
-				DefaultAnimation.Play(NormalizeSequence(self, Info.Sequence));
+				CancelCustomAnimation(self);
 				if (after != null)
 					after();
 			});
@@ -153,12 +141,5 @@ namespace OpenRA.Mods.Common.Traits.Render
 		{
 			DefaultAnimation.PlayRepeating(NormalizeSequence(self, Info.Sequence));
 		}
-
-		void INotifyBuildComplete.BuildingComplete(Actor self) { buildComplete = true; }
-		void INotifySold.Selling(Actor self) { buildComplete = false; }
-		void INotifySold.Sold(Actor self) { }
-		void INotifyTransform.BeforeTransform(Actor self) { buildComplete = false; }
-		void INotifyTransform.OnTransform(Actor self) { }
-		void INotifyTransform.AfterTransform(Actor toActor) { }
 	}
 }

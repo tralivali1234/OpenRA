@@ -1,5 +1,5 @@
 --[[
-   Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+   Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
    This file is part of OpenRA, which is free software. It is made
    available to you under the terms of the GNU General Public License
    as published by the Free Software Foundation, either version 3 of
@@ -72,14 +72,19 @@ end
 
 SendUSSRParadrops = function()
 	local powerproxy = Actor.Create("powerproxy.paratroopers", false, { Owner = ussr })
-	local unitsA = powerproxy.SendParatroopers(ParadropLZ.CenterPosition, false, 128 + 32)
-	local unitsB = powerproxy.SendParatroopers(ParadropLZ.CenterPosition, false, 128 - 32)
 
-	Utils.Do(unitsA, function(unit)
-		IdleHunt(unit)
+	local aircraftA = powerproxy.TargetParatroopers(ParadropLZ.CenterPosition, Angle.SouthEast)
+	Utils.Do(aircraftA, function(a)
+		Trigger.OnPassengerExited(a, function(t, p)
+			IdleHunt(p)
+		end)
 	end)
-	Utils.Do(unitsB, function(unit)
-		IdleHunt(unit)
+
+	local aircraftB = powerproxy.TargetParatroopers(ParadropLZ.CenterPosition, Angle.SouthWest)
+	Utils.Do(aircraftB, function(a)
+		Trigger.OnPassengerExited(a, function(t, p)
+			IdleHunt(p)
+		end)
 	end)
 
 	powerproxy.Destroy()
@@ -160,12 +165,20 @@ InitTriggers = function()
 		end
 	end)
 
+	local baseTrigger = Trigger.OnEnteredFootprint(CameraTriggerArea, function(a, id)
+		if a.Owner == player and not baseCamera then
+			Trigger.RemoveFootprintTrigger(id)
+			baseCamera = Actor.Create("camera", true, { Owner = player, Location = BaseCameraWaypoint.Location })
+		end
+	end)
+
 	Utils.Do(FirstUSSRBase, function(unit)
 		Trigger.OnDamaged(unit, function()
 			if not FirstBaseAlert then
 				FirstBaseAlert = true
-				if not baseCamera then -- TODO: remove the Trigger
+				if not baseCamera then
 					baseCamera = Actor.Create("camera", true, { Owner = player, Location = BaseCameraWaypoint.Location })
+					Trigger.RemoveFootprintTrigger(baseTrigger)
 				end
 				Utils.Do(FirstUSSRBase, function(unit)
 					if unit.HasProperty("Move") then
@@ -181,8 +194,10 @@ InitTriggers = function()
 			end
 		end)
 	end)
-	Trigger.OnAllRemovedFromWorld(FirstUSSRBase, function() -- The camera can remain when one building is captured
-		if baseCamera then baseCamera.Destroy() end
+	Trigger.OnAllKilledOrCaptured(FirstUSSRBase, function()
+		if baseCamera and baseCamera.IsInWorld then
+			baseCamera.Destroy()
+		end
 	end)
 
 	Utils.Do(SecondUSSRBase, function(unit)
@@ -215,12 +230,6 @@ InitTriggers = function()
 		end)
 	end)
 
-	Trigger.OnEnteredFootprint(CameraTriggerArea, function(a, id)
-		if a.Owner == player and not baseCamera then
-			Trigger.RemoveFootprintTrigger(id)
-			baseCamera = Actor.Create("camera", true, { Owner = player, Location = BaseCameraWaypoint.Location })
-		end
-	end)
 	Trigger.OnEnteredFootprint(WaterTransportTriggerArea, function(a, id)
 		if a.Owner == player and not waterTransportTriggered then
 			waterTransportTriggered = true
@@ -249,7 +258,11 @@ InitTriggers = function()
 		Trigger.OnAllKilled(bridges, function()
 			player.MarkCompletedObjective(KillBridges)
 			player.MarkCompletedObjective(TanyaSurvive)
-			player.MarkCompletedObjective(FreePrisoners)
+
+			-- The prisoners are free once their guards are dead
+			if PGuard1.IsDead and PGuard2.IsDead then
+				player.MarkCompletedObjective(FreePrisoners)
+			end
 		end)
 
 		local oilPumps = ussr.GetActorsByType("v19")

@@ -40,12 +40,14 @@ Speech:
 		SelectTarget: select1
 		SilosNeeded: silos1
 		StartGame:
+		GameLoaded:
+		GameSaved:
 		Training: bldging1
 		UnitDestroyed: dead1
 		UnitLost: unitlost
 		UnitReady: unitredy
 		Win: accom1
-	DisablePrefixes: AbilityInsufficientPower, BaseAttack, Building, BuildingCannotPlaceAudio, BuildingInProgress, BuildingLost, Cancelled, CivilianBuildingCaptured, CivilianKilled, ConstructionComplete, EnemyUnitsApproaching, EnemyStructureDestroyed, EnemyPlanesApproaching, HarvesterAttack, InsufficientPower, IonCannonCharging, IonCannonReady, Leave, Lose, LowPower, MissionAccomplished, MissionFailed, NewOptions, NoBuild, NodStructureDestroyed, NotReady, NuclearWarheadApproaching, NuclearWeaponAvailable, NuclearWeaponLaunched, OnHold, PrimaryBuildingSelected, Reinforce, Repairing, SelectTarget, SilosNeeded, Training, UnitLost, UnitReady, Win
+	DisablePrefixes: AirstrikeReady, BaseAttack, Building, BuildingCannotPlaceAudio, BuildingInProgress, BuildingLost, Cancelled, CivilianBuildingCaptured, CivilianKilled, ConstructionComplete, EnemyUnitsApproaching, EnemyStructureDestroyed, EnemyPlanesApproaching, HarvesterAttack, InsufficientPower, IonCannonCharging, IonCannonReady, Leave, Lose, LowPower, MissionAccomplished, MissionFailed, NewOptions, NoBuild, NodStructureDestroyed, NotReady, NuclearWarheadApproaching, NuclearWeaponAvailable, NuclearWeaponLaunched, OnHold, PrimaryBuildingSelected, Reinforce, Repairing, SelectTarget, SilosNeeded, Training, UnitLost, UnitReady, Win
 
 Sounds:
 	Notifications:
@@ -56,6 +58,7 @@ Sounds:
 		Beepy6: beepy6
 		CashTickDown: tone16
 		CashTickUp: tone15
+			VolumeModifier: 0.33
 		ChatLine: scold1
 		ClickDisabledSound: scold2
 		ClickSound: button
@@ -78,7 +81,6 @@ Sounds:
 		SignalFlareNorth: flaren1
 		SignalFlareSouth: flares1
 		SignalFlareWest: flarew1
-		TabClick: button
 		Target1: target1
 		Target2: target2
 		Target3: target3

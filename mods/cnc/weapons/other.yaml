@@ -8,7 +8,7 @@
 		Speed: 1c682
 	Warhead@1Dam: SpreadDamage
 		Spread: 468
-		Damage: 40
+		Damage: 4000
 		ValidTargets: Ground, Water, Trees
 		InvalidTargets: Wall
 		Versus:
@@ -22,24 +22,29 @@
 		InvalidTargets: Vehicle, Structure, Wall
 	Warhead@3Eff: CreateEffect
 		Explosions: small_napalm
-		ImpactSounds: flamer2.aud
+		ImpactActors: false
 
 Flamethrower:
 	Inherits: ^FlameWeapon
+	Warhead@1Dam: SpreadDamage
+		Spread: 256
 
 BigFlamer:
 	Inherits: ^FlameWeapon
-	ReloadDelay: 50
+	ReloadDelay: 65
 	Range: 3c512
 	Projectile: Bullet
 		Speed: 341
 	Burst: 2
-	BurstDelay: 25
+	BurstDelays: 10
 	Warhead@1Dam: SpreadDamage
 		Spread: 400
-		Damage: 75
+		Damage: 10000
 		Versus:
-			Heavy: 25
+			None: 82
+			Wood: 75
+			Light: 75
+			Heavy: 18
 	Warhead@3Eff: CreateEffect
 		Explosions: med_napalm
 
@@ -47,11 +52,11 @@ Chemspray:
 	Inherits: ^FlameWeapon
 	ReloadDelay: 65
 	Range: 3c0
-	InvalidTargets:
+	-InvalidTargets:
 	Warhead@1Dam: SpreadDamage
 		Spread: 256
-		Damage: 80
-		InvalidTargets:
+		Damage: 8000
+		-InvalidTargets:
 		Versus:
 			None: 70
 			Wood: 35
@@ -67,16 +72,17 @@ Napalm:
 	ReloadDelay: 4
 	Range: 2c0
 	Burst: 2
-	BurstDelay: 2
+	BurstDelays: 2
 	-Projectile:
 	Projectile: GravityBomb
 		Image: BOMBLET
 		Shadow: true
 	Warhead@1Dam: SpreadDamage
 		Spread: 341
-		Damage: 30
+		Damage: 3000
 		Falloff: 1000, 368, 135, 50, 18, 7, 0
 		Versus:
+			Wood: 35
 			Heavy: 80
 	Warhead@3Eff: CreateEffect
 		Explosions: med_napalm
@@ -91,7 +97,7 @@ Laser:
 		ZOffset: 2047
 	Warhead@1Dam: SpreadDamage
 		Spread: 42
-		Damage: 360
+		Damage: 36000
 		Versus:
 			Wood: 50
 		DamageTypes: Prone50Percent, TriggerProne, FireDeath
@@ -107,7 +113,7 @@ Laser:
 		Speed: 1c682
 	Warhead@1Dam: SpreadDamage
 		Spread: 213
-		Damage: 180
+		Damage: 18000
 		Versus:
 			None: 90
 			Wood: 10
@@ -122,7 +128,7 @@ Horn:
 	Inherits: ^DinoWeapon
 	ReloadDelay: 20
 	Warhead@1Dam: SpreadDamage
-		Damage: 120
+		Damage: 12000
 
 Teeth:
 	Inherits: ^DinoWeapon
@@ -131,7 +137,7 @@ Claw:
 	Inherits: ^DinoWeapon
 	ReloadDelay: 10
 	Warhead@1Dam: SpreadDamage
-		Damage: 60
+		Damage: 6000
 
 Demolish:
 	Warhead@1Dam: SpreadDamage
@@ -139,3 +145,4 @@ Demolish:
 	Warhead@2Eff: CreateEffect
 		Explosions: building
 		ImpactSounds: xplobig6.aud
+		ImpactActors: false

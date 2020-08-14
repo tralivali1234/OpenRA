@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,8 +10,8 @@
 #endregion
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
+using OpenRA.Primitives;
 using OpenRA.Support;
 
 namespace OpenRA.Graphics
@@ -23,7 +23,7 @@ namespace OpenRA.Graphics
 		public bool IsDecoration { get; set; }
 
 		readonly SequenceProvider sequenceProvider;
-		readonly Func<int> facingFunc;
+		readonly Func<WAngle> facingFunc;
 		readonly Func<bool> paused;
 
 		int frame;
@@ -33,15 +33,15 @@ namespace OpenRA.Graphics
 		Action tickFunc = () => { };
 
 		public Animation(World world, string name)
-			: this(world, name, () => 0) { }
+			: this(world, name, () => WAngle.Zero) { }
 
-		public Animation(World world, string name, Func<int> facingFunc)
+		public Animation(World world, string name, Func<WAngle> facingFunc)
 			: this(world, name, facingFunc, null) { }
 
 		public Animation(World world, string name, Func<bool> paused)
-			: this(world, name, () => 0, paused) { }
+			: this(world, name, () => WAngle.Zero, paused) { }
 
-		public Animation(World world, string name, Func<int> facingFunc, Func<bool> paused)
+		public Animation(World world, string name, Func<WAngle> facingFunc, Func<bool> paused)
 		{
 			sequenceProvider = world.Map.Rules.Sequences;
 			Name = name.ToLowerInvariant();
@@ -49,24 +49,52 @@ namespace OpenRA.Graphics
 			this.paused = paused;
 		}
 
-		public int CurrentFrame { get { return backwards ? CurrentSequence.Start + CurrentSequence.Length - frame - 1 : frame; } }
+		public int CurrentFrame { get { return backwards ? CurrentSequence.Length - frame - 1 : frame; } }
 		public Sprite Image { get { return CurrentSequence.GetSprite(CurrentFrame, facingFunc()); } }
 
-		public IEnumerable<IRenderable> Render(WPos pos, WVec offset, int zOffset, PaletteReference palette, float scale)
+		public IRenderable[] Render(WPos pos, WVec offset, int zOffset, PaletteReference palette, float scale)
 		{
-			var imageRenderable = new SpriteRenderable(Image, pos, offset, CurrentSequence.ZOffset + zOffset, palette, scale, IsDecoration);
+			var imageRenderable = new SpriteRenderable(Image, pos, offset, CurrentSequence.ZOffset + zOffset, palette, scale, IsDecoration, CurrentSequence.IgnoreWorldTint);
 
 			if (CurrentSequence.ShadowStart >= 0)
 			{
 				var shadow = CurrentSequence.GetShadow(CurrentFrame, facingFunc());
-				var shadowRenderable = new SpriteRenderable(shadow, pos, offset, CurrentSequence.ShadowZOffset + zOffset, palette, scale, true);
+				var shadowRenderable = new SpriteRenderable(shadow, pos, offset, CurrentSequence.ShadowZOffset + zOffset, palette, scale, true, CurrentSequence.IgnoreWorldTint);
 				return new IRenderable[] { shadowRenderable, imageRenderable };
 			}
 
 			return new IRenderable[] { imageRenderable };
 		}
 
-		public IEnumerable<IRenderable> Render(WPos pos, PaletteReference palette)
+		public IRenderable[] RenderUI(WorldRenderer wr, int2 pos, WVec offset, int zOffset, PaletteReference palette, float scale)
+		{
+			var screenOffset = (scale * wr.ScreenVectorComponents(offset)).XY.ToInt2();
+			var imagePos = pos + screenOffset - new int2((int)(scale * Image.Size.X / 2), (int)(scale * Image.Size.Y / 2));
+			var imageRenderable = new UISpriteRenderable(Image, WPos.Zero + offset, imagePos, CurrentSequence.ZOffset + zOffset, palette, scale);
+
+			if (CurrentSequence.ShadowStart >= 0)
+			{
+				var shadow = CurrentSequence.GetShadow(CurrentFrame, facingFunc());
+				var shadowPos = pos - new int2((int)(scale * shadow.Size.X / 2), (int)(scale * shadow.Size.Y / 2));
+				var shadowRenderable = new UISpriteRenderable(shadow, WPos.Zero + offset, shadowPos, CurrentSequence.ShadowZOffset + zOffset, palette, scale);
+				return new IRenderable[] { shadowRenderable, imageRenderable };
+			}
+
+			return new IRenderable[] { imageRenderable };
+		}
+
+		public Rectangle ScreenBounds(WorldRenderer wr, WPos pos, WVec offset, float scale)
+		{
+			var xy = wr.ScreenPxPosition(pos) + wr.ScreenPxOffset(offset);
+			var cb = CurrentSequence.Bounds;
+			return Rectangle.FromLTRB(
+				xy.X + (int)(cb.Left * scale),
+				xy.Y + (int)(cb.Top * scale),
+				xy.X + (int)(cb.Right * scale),
+				xy.Y + (int)(cb.Bottom * scale));
+		}
+
+		public IRenderable[] Render(WPos pos, PaletteReference palette)
 		{
 			return Render(pos, WVec.Zero, 0, palette, 1f);
 		}

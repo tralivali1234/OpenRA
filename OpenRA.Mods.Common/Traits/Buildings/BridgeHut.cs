@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -11,12 +11,13 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using OpenRA.Effects;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("Allows bridges to be targeted for demolition and repair.")]
-	class BridgeHutInfo : IDemolishableInfo, ITraitInfo
+	class BridgeHutInfo : TraitInfo, IDemolishableInfo
 	{
 		[Desc("Bridge types to act on")]
 		public readonly string[] Types = { "GroundLevelBridge" };
@@ -35,7 +36,7 @@ namespace OpenRA.Mods.Common.Traits
 
 		public bool IsValidTarget(ActorInfo actorInfo, Actor saboteur) { return false; } // TODO: bridges don't support frozen under fog
 
-		public object Create(ActorInitializer init) { return new BridgeHut(init.World, this); }
+		public override object Create(ActorInitializer init) { return new BridgeHut(init.World, this); }
 	}
 
 	class BridgeHut : INotifyCreated, IDemolishable, ITick
@@ -164,17 +165,36 @@ namespace OpenRA.Mods.Common.Traits
 			repairDelay = Info.RepairPropagationDelay;
 		}
 
-		public void Demolish(Actor self, Actor saboteur)
+		bool IDemolishable.IsValidTarget(Actor self, Actor saboteur)
 		{
-			if (Info.DemolishPropagationDelay > 0)
+			return true;
+		}
+
+		void IDemolishable.Demolish(Actor self, Actor saboteur, int delay)
+		{
+			// TODO: Handle using ITick
+			self.World.Add(new DelayedAction(delay, () =>
 			{
-				demolishStep = 0;
-				demolishSaboteur = saboteur;
-				DemolishStep();
-			}
-			else
-				foreach (var s in segments.Values)
-					s.Demolish(saboteur);
+				if (self.IsDead)
+					return;
+
+				var modifiers = self.TraitsImplementing<IDamageModifier>()
+					.Concat(self.Owner.PlayerActor.TraitsImplementing<IDamageModifier>())
+					.Select(t => t.GetDamageModifier(self, null));
+
+				if (Util.ApplyPercentageModifiers(100, modifiers) > 0)
+				{
+					if (Info.DemolishPropagationDelay > 0)
+					{
+						demolishStep = 0;
+						demolishSaboteur = saboteur;
+						DemolishStep();
+					}
+					else
+						foreach (var s in segments.Values)
+							s.Demolish(saboteur);
+				}
+			}));
 		}
 
 		public void DemolishStep()
@@ -200,11 +220,6 @@ namespace OpenRA.Mods.Common.Traits
 
 			// Always advance at least one step (prevents sticking on placeholders)
 			demolishStep++;
-		}
-
-		public bool IsValidTarget(Actor self, Actor saboteur)
-		{
-			return true;
 		}
 
 		public DamageState BridgeDamageState

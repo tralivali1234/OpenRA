@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -168,6 +168,115 @@ TestB:
 
 			var result = MiniYaml.FromString(yaml).First(n => n.Key == "TestB");
 			Assert.AreEqual(5, result.Location.Line);
+		}
+
+		[TestCase(TestName = "Duplicated nodes are correctly merged")]
+		public void TestSelfMerging()
+		{
+			var baseYaml = @"
+Test:
+	Merge: original
+		Child: original
+	Original:
+Test:
+	Merge: override
+		Child: override
+	Override:
+";
+
+			var result = MiniYaml.Merge(new[] { baseYaml }.Select(s => MiniYaml.FromString(s, "")));
+			Assert.That(result.Count(n => n.Key == "Test"), Is.EqualTo(1), "Result should have exactly one Test node.");
+
+			var testNodes = result.First(n => n.Key == "Test").Value.Nodes;
+			Assert.That(testNodes.Select(n => n.Key), Is.EqualTo(new[] { "Merge", "Original", "Override" }), "Merged Test node has incorrect child nodes.");
+
+			var mergeNode = testNodes.First(n => n.Key == "Merge").Value;
+			Assert.That(mergeNode.Value, Is.EqualTo("override"), "Merge node has incorrect value.");
+			Assert.That(mergeNode.Nodes[0].Value.Value, Is.EqualTo("override"), "Merge node Child value should be 'override', but is not");
+		}
+
+		[TestCase(TestName = "Comments are correctly separated from values")]
+		public void TestEscapedHashInValues()
+		{
+			var trailingWhitespace = @"key: value # comment";
+			Assert.AreEqual("value", MiniYaml.FromString(trailingWhitespace, "trailingWhitespace")[0].Value.Value);
+
+			var noWhitespace = @"key:value# comment";
+			Assert.AreEqual("value", MiniYaml.FromString(noWhitespace, "noWhitespace")[0].Value.Value);
+
+			var escapedHashInValue = @"key: before \# after # comment";
+			Assert.AreEqual("before # after", MiniYaml.FromString(escapedHashInValue, "escapedHashInValue")[0].Value.Value);
+
+			var emptyValue = @"key:# comment";
+			Assert.AreEqual(null, MiniYaml.FromString(emptyValue, "emptyValue")[0].Value.Value);
+		}
+
+		[TestCase(TestName = "Leading and trailing whitespace can be guarded using a backslash")]
+		public void TestGuardedWhitespace()
+		{
+			var testYaml = @"key:   \      test value    \   ";
+			var nodes = MiniYaml.FromString(testYaml, "testYaml");
+			Assert.AreEqual("      test value    ", nodes[0].Value.Value);
+		}
+
+		[TestCase(TestName = "Comments should count toward line numbers")]
+		public void CommentsShouldCountTowardLineNumbers()
+		{
+			var yaml = @"
+TestA:
+	Nothing:
+
+# Comment
+TestB:
+	Nothing:
+";
+			var resultDiscard = MiniYaml.FromString(yaml);
+			var resultDiscardLine = resultDiscard.First(n => n.Key == "TestB").Location.Line;
+			Assert.That(resultDiscardLine, Is.EqualTo(6), "Node TestB should report its location as line 6, but is not (discarding comments)");
+			Assert.That(resultDiscard[1].Key, Is.EqualTo("TestB"), "Node TestB should be the second child of the root node, but is not (discarding comments)");
+
+			var resultKeep = MiniYaml.FromString(yaml, discardCommentsAndWhitespace: false);
+			var resultKeepLine = resultKeep.First(n => n.Key == "TestB").Location.Line;
+			Assert.That(resultKeepLine, Is.EqualTo(6), "Node TestB should report its location as line 6, but is not (parsing comments)");
+			Assert.That(resultKeep[4].Key, Is.EqualTo("TestB"), "Node TestB should be the fifth child of the root node, but is not (parsing comments)");
+		}
+
+		[TestCase(TestName = "Comments should survive a round trip intact")]
+		public void CommentsSurviveRoundTrip()
+		{
+			var yaml = @"
+# Top level comment node
+#
+Parent: # comment without value
+	# Indented comment node
+	First: value containing a \# character
+	Second: value # node with inline comment
+	Third: value #
+	Fourth: #
+".Replace("\r\n", "\n");
+
+			var result = MiniYaml.FromString(yaml, discardCommentsAndWhitespace: false).WriteToString();
+			Assert.AreEqual(yaml, result);
+		}
+
+		[TestCase(TestName = "Comments should be be removed when discardCommentsAndWhitespace is false")]
+		public void CommentsShouldntSurviveRoundTrip()
+		{
+			var yaml = @"
+# Top level comment node
+Parent: # comment without value
+	# Indented comment node
+	First: value containing a \# character
+	Second: value # node with inline comment
+";
+
+			var strippedYaml = @"Parent:
+	First: value containing a \# character
+	Second: value
+".Replace("\r\n", "\n");
+
+			var result = MiniYaml.FromString(yaml).WriteToString();
+			Assert.AreEqual(strippedYaml, result);
 		}
 	}
 }

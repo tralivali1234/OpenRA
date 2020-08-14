@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -11,8 +11,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using OpenRA.FileSystem;
 
 namespace OpenRA.Mods.Common.UtilityCommands
@@ -36,7 +34,7 @@ namespace OpenRA.Mods.Common.UtilityCommands
 				{
 					include |= map.Package.Contains(f);
 					if (include)
-						nodes.AddRange(MiniYaml.FromStream(map.Open(f), f));
+						nodes.AddRange(MiniYaml.FromStream(map.Open(f), f, false));
 					else
 						includes.Add(f);
 				}
@@ -54,10 +52,10 @@ namespace OpenRA.Mods.Common.UtilityCommands
 		{
 			var modData = Game.ModData = utility.ModData;
 
-			var map = new Map(modData, modData.ModFiles.OpenPackage(args[1], new Folder(".")));
+			var map = new Map(modData, new Folder(".").OpenPackage(args[1], modData.ModFiles));
 			MergeAndPrint(map, "Rules", map.RuleDefinitions);
 			MergeAndPrint(map, "Sequences", map.SequenceDefinitions);
-			MergeAndPrint(map, "VoxelSequences", map.VoxelSequenceDefinitions);
+			MergeAndPrint(map, "ModelSequences", map.ModelSequenceDefinitions);
 			MergeAndPrint(map, "Weapons", map.WeaponDefinitions);
 			MergeAndPrint(map, "Voices", map.VoiceDefinitions);
 			MergeAndPrint(map, "Music", map.MusicDefinitions);

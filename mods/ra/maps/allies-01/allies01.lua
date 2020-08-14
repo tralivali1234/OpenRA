@@ -1,5 +1,5 @@
 --[[
-   Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+   Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
    This file is part of OpenRA, which is free software. It is made
    available to you under the terms of the GNU General Public License
    as published by the Free Software Foundation, either version 3 of
@@ -37,7 +37,6 @@ RunInitialActivities = function()
 	Patrol2.Hunt()
 	Patrol3.Hunt()
 	Patrol4.Hunt()
-	Harvester.FindResources()
 	Civilian1.Wait(DateTime.Seconds(6))
 	Civilian2.Wait(DateTime.Seconds(6))
 	Civilian1.Hunt()
@@ -85,7 +84,7 @@ end
 EvacuateHelicopter = function()
 	if heli.HasPassengers then
 		heli.Move(ExtractionExitPoint.Location)
-		Trigger.OnIdle(heli, heli.Destroy)
+		heli.Destroy()
 	end
 end
 
@@ -122,6 +121,12 @@ CiviliansKilled = function()
 	player.MarkFailedObjective(CivilProtectionObjective)
 	Media.PlaySpeechNotification(player, "ObjectiveNotMet")
 	collateralDamage = true
+end
+
+LostMate = function()
+	if not Civilian2.IsDead then
+		Civilian2.Panic()
+	end
 end
 
 CreateEinstein = function()
@@ -206,6 +211,7 @@ WorldLoaded = function()
 	collateralDamage = false
 	civilianTeam = { Civilian1, Civilian2 }
 	Trigger.OnAnyKilled(civilianTeam, CiviliansKilled)
+	Trigger.OnKilled(Civilian1, LostMate)
 
 	SetUnitStances()
 

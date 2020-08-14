@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 using OpenRA.Mods.Common.Traits;
 using OpenRA.Orders;
+using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Orders
 {
@@ -31,9 +32,9 @@ namespace OpenRA.Mods.Common.Orders
 				yield break;
 
 			world.CancelInputMode();
-			foreach (var subject in Subjects)
-				if (subject != target)
-					yield return new Order(OrderName, subject, false) { TargetActor = target };
+
+			var queued = mi.Modifiers.HasModifier(Modifiers.Shift);
+			yield return new Order(OrderName, null, Target.FromActor(target), queued, null, Subjects.Where(s => s != target).ToArray());
 		}
 
 		public override void Tick(World world)
@@ -56,10 +57,12 @@ namespace OpenRA.Mods.Common.Orders
 
 		static IEnumerable<Actor> FriendlyGuardableUnits(World world, MouseInput mi)
 		{
-			return world.ScreenMap.ActorsAt(mi)
-				.Where(a => !world.FogObscures(a) && !a.IsDead &&
+			return world.ScreenMap.ActorsAtMouse(mi)
+				.Select(a => a.Actor)
+				.Where(a => !a.IsDead &&
 					a.AppearsFriendlyTo(world.LocalPlayer.PlayerActor) &&
-					a.Info.HasTraitInfo<GuardableInfo>());
+					a.Info.HasTraitInfo<GuardableInfo>() &&
+					!world.FogObscures(a));
 		}
 	}
 }

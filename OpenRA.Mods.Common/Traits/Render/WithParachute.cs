@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using OpenRA.Graphics;
 using OpenRA.Mods.Common.Graphics;
+using OpenRA.Primitives;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits.Render
@@ -24,17 +25,22 @@ namespace OpenRA.Mods.Common.Traits.Render
 		[Desc("The image that contains the parachute sequences.")]
 		public readonly string Image = null;
 
+		[SequenceReference("Image")]
 		[Desc("Parachute opening sequence.")]
-		[SequenceReference("Image")] public readonly string OpeningSequence = null;
+		public readonly string OpeningSequence = null;
 
+		[SequenceReference("Image")]
 		[Desc("Parachute idle sequence.")]
-		[SequenceReference("Image")] public readonly string Sequence = null;
+		public readonly string Sequence = null;
 
+		[SequenceReference("Image")]
 		[Desc("Parachute closing sequence. Defaults to opening sequence played backwards.")]
-		[SequenceReference("Image")] public readonly string ClosingSequence = null;
+		public readonly string ClosingSequence = null;
 
+		[PaletteReference("IsPlayerPalette")]
 		[Desc("Palette used to render the parachute.")]
-		[PaletteReference("IsPlayerPalette")] public readonly string Palette = "player";
+		public readonly string Palette = "player";
+
 		public readonly bool IsPlayerPalette = true;
 
 		[Desc("Parachute position relative to the paradropped unit.")]
@@ -43,11 +49,13 @@ namespace OpenRA.Mods.Common.Traits.Render
 		[Desc("The image that contains the shadow sequence for the paradropped unit.")]
 		public readonly string ShadowImage = null;
 
+		[SequenceReference("ShadowImage")]
 		[Desc("Paradropped unit's shadow sequence.")]
-		[SequenceReference("ShadowImage")] public readonly string ShadowSequence = null;
+		public readonly string ShadowSequence = null;
 
+		[PaletteReference(false)]
 		[Desc("Palette used to render the paradropped unit's shadow.")]
-		[PaletteReference(false)] public readonly string ShadowPalette = "shadow";
+		public readonly string ShadowPalette = "shadow";
 
 		[Desc("Shadow position relative to the paradropped unit's intended landing position.")]
 		public readonly WVec ShadowOffset = new WVec(0, 128, 0);
@@ -69,12 +77,13 @@ namespace OpenRA.Mods.Common.Traits.Render
 			if (Palette != null)
 				p = init.WorldRenderer.Palette(Palette);
 
-			Func<int> facing;
-			if (init.Contains<DynamicFacingInit>())
-				facing = init.Get<DynamicFacingInit, Func<int>>();
+			Func<WAngle> facing;
+			var dynamicfacingInit = init.GetOrDefault<DynamicFacingInit>();
+			if (dynamicfacingInit != null)
+				facing = dynamicfacingInit.Value;
 			else
 			{
-				var f = init.Contains<FacingInit>() ? init.Get<FacingInit, int>() : 0;
+				var f = init.GetValue<FacingInit, WAngle>(WAngle.Zero);
 				facing = () => f;
 			}
 
@@ -82,7 +91,7 @@ namespace OpenRA.Mods.Common.Traits.Render
 			anim.PlayThen(OpeningSequence, () => anim.PlayRepeating(Sequence));
 
 			var body = init.Actor.TraitInfo<BodyOrientationInfo>();
-			Func<WRot> orientation = () => body.QuantizeOrientation(WRot.FromFacing(facing()), facings);
+			Func<WRot> orientation = () => body.QuantizeOrientation(WRot.FromYaw(facing()), facings);
 			Func<WVec> offset = () => body.LocalToWorld(Offset.Rotate(orientation()));
 			Func<int> zOffset = () =>
 			{
@@ -148,21 +157,18 @@ namespace OpenRA.Mods.Common.Traits.Render
 				anim.Animation.PlayBackwardsThen(info.OpeningSequence, () => renderProlonged = false);
 		}
 
-		public void Tick(Actor self)
+		void ITick.Tick(Actor self)
 		{
 			if (shadow != null)
 				shadow.Tick();
 		}
 
-		public IEnumerable<IRenderable> Render(Actor self, WorldRenderer wr)
+		IEnumerable<IRenderable> IRender.Render(Actor self, WorldRenderer wr)
 		{
 			if (info.ShadowImage == null)
 				return Enumerable.Empty<IRenderable>();
 
-			if (IsTraitDisabled)
-				return Enumerable.Empty<IRenderable>();
-
-			if (self.IsDead || !self.IsInWorld)
+			if (IsTraitDisabled || self.IsDead || !self.IsInWorld)
 				return Enumerable.Empty<IRenderable>();
 
 			if (self.World.FogObscures(self))
@@ -171,7 +177,23 @@ namespace OpenRA.Mods.Common.Traits.Render
 			var dat = self.World.Map.DistanceAboveTerrain(self.CenterPosition);
 			var pos = self.CenterPosition - new WVec(0, 0, dat.Length);
 			var palette = wr.Palette(info.ShadowPalette);
-			return new IRenderable[] { new SpriteRenderable(shadow.Image, pos, info.ShadowOffset, info.ShadowZOffset, palette, 1, true) };
+			return new IRenderable[] { new SpriteRenderable(shadow.Image, pos, info.ShadowOffset, info.ShadowZOffset, palette, 1, true, shadow.CurrentSequence.IgnoreWorldTint) };
+		}
+
+		IEnumerable<Rectangle> IRender.ScreenBounds(Actor self, WorldRenderer wr)
+		{
+			if (info.ShadowImage == null)
+				return Enumerable.Empty<Rectangle>();
+
+			if (IsTraitDisabled || self.IsDead || !self.IsInWorld)
+				return Enumerable.Empty<Rectangle>();
+
+			if (self.World.FogObscures(self))
+				return Enumerable.Empty<Rectangle>();
+
+			var dat = self.World.Map.DistanceAboveTerrain(self.CenterPosition);
+			var pos = self.CenterPosition - new WVec(0, 0, dat.Length);
+			return new Rectangle[] { shadow.ScreenBounds(wr, pos, info.ShadowOffset, 1) };
 		}
 	}
 }

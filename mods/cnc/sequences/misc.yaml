@@ -105,25 +105,27 @@ patriot:
 explosion:
 	Defaults:
 		Length: *
-		ZOffset: 511
+		ZOffset: 2047
 	nuke_explosion: atomsfx
 	piff: piff
 	piffs: piffpiff
-	chemball: chemball # Same size as small_napalm, but bright green.
-	small_napalm: napalm1 # Not used by much. Currently used for flamethrower.
-	med_napalm: napalm2 # Explosion for bomblets
-	big_napalm: napalm3 # Huge; not used. (SSM used this explosion in C&C Gold?)
-	small_frag: veh-hit3 # The most common weapon-hit explosion. For rockets, tank shells, etc.
-	med_frag: frag1 # Fragmentation-style; quite large. (MLRS used this explosion in C&C Gold?)
-	big_frag: frag3 # Same as med_frag, except fire hangs around longer.
-	small_poof: veh-hit2 # For Grenades, tower missiles, boat missiles and APC AA gun.
-	poof: art-exp1 # For UnitExplode (artillery), artillery shell hit, building explosion and GrenadierExplode
-	small_building: veh-hit1 # Used for heli-explosion in C&C Gold?
+	chemball: chemball
+	small_napalm: napalm1
+	med_napalm: napalm2
+	big_napalm: napalm3
+	small_frag: veh-hit3
+	med_frag: frag1
+	big_frag: frag3
+	small_poof: veh-hit2
+	poof: art-exp1
+	small_building: veh-hit1
 	building: fball1
 	building_napalm: napalm2
 		FlipX: true
 
 rank:
+	Defaults:
+		Offset: 0, 3
 	rank-veteran-1:
 	rank-veteran-2:
 		Start: 1
@@ -131,6 +133,7 @@ rank:
 		Start: 2
 	rank-elite:
 		Start: 3
+		Offset: 1, 3
 
 rallypoint:
 	flag: flagfly
@@ -169,6 +172,14 @@ allyrepair:
 		ZOffset: 2047
 
 crate:
+	idle:
+		ZOffset: -511
+
+scrate:
+	idle:
+		ZOffset: -511
+
+wcrate:
 	idle:
 		ZOffset: -511
 
@@ -257,38 +268,31 @@ pips:
 	pip-blue:
 		Start: 5
 	pip-heal: pip-heal
-		Length: *
+		Offset: -1, 1
 	groups: pdigits
 		Length: *
 		Offset: 9, 5
 	pip-hazmat: pip-hazmat
-		Length: *
+		Offset: -3, 0
 
 overlay:
-	build-valid-desert:
-	build-valid-snow:
-		Start: 2
-	build-valid-temperat:
-	build-valid-winter:
-	build-valid-jungle:
+	Defaults: trans.icn
+		AddExtension: False
+	build-valid:
 	build-invalid:
-		Start: 1
-	target-select:
-		Start: 3
-	target-valid-desert:
-	target-valid-snow:
 		Start: 2
-	target-valid-temperat:
-	target-valid-winter:
-	target-valid-jungle:
-	target-invalid:
+	target-valid:
+	target-select:
 		Start: 1
+	target-invalid:
+		Start: 2
 
 editor-overlay:
-	copy: overlay
-		Start: 0
-	paste: overlay
-		Start: 1
+	Defaults: trans.icn
+		AddExtension: False
+	copy:
+	paste:
+		Start: 2
 
 poweroff:
 	offline:
@@ -425,11 +429,49 @@ craters:
 
 smokland:
 	open:
-		Length: 60
+		Length: 72
 		Tick: 120
 		ZOffset: 1023
 	idle:
-		Start: 60
-		Length: 32
+		Start: 72
+		Length: 20
 		Tick: 120
 		ZOffset: 1023
+
+airstrikedirection:
+	arrow-t: mouse2
+		Start: 1
+		Y: -12
+		Offset: 0, -15, 0
+	arrow-tr: mouse2
+		Start: 2
+		X: 14
+		Y: -12
+		Offset: 7, -7, 0
+	arrow-r: mouse2
+		Start: 3
+		X: 14
+		Offset: 12, 0, 0
+	arrow-br: mouse2
+		Start: 4
+		X: 14
+		Y: 11
+		Offset: 7, 7, 0
+	arrow-b: mouse2
+		Start: 5
+		Y: 11
+		Offset: 0, 15, 0
+	arrow-bl: mouse2
+		Start: 6
+		X: -15
+		Y: 11
+		Offset: -7, 7, 0
+	arrow-l: mouse2
+		Start: 7
+		X: -15
+		Offset: -12, 0, 0
+	arrow-tl: mouse2
+		Start: 8
+		X: -15
+		Y: -12
+		Offset: -7, -7, 0

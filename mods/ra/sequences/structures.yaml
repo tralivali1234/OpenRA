@@ -38,6 +38,8 @@ bio:
 		Length: *
 
 oilb:
+	Defaults:
+		Offset: 0,-6
 	idle:
 	damaged-idle:
 		Start: 1
@@ -45,6 +47,7 @@ oilb:
 	make:
 	bib: bib3
 		Length: *
+		Offset: 0,0
 		UseTilesetExtension: true
 		TilesetOverrides:
 			INTERIOR: TEMPERAT
@@ -56,11 +59,16 @@ fact:
 	build:
 		Start: 1
 		Length: 25
+	pdox: factpdox
+		Length: 80
 	damaged-idle:
 		Start: 26
 	damaged-build:
 		Start: 27
 		Length: 25
+	damaged-pdox: factpdox
+		Start: 80
+		Length: 80
 	dead: factdead
 		Tick: 800
 	bib: bib2
@@ -75,6 +83,7 @@ proc:
 	idle:
 		ZOffset: -1c511
 	damaged-idle:
+		Start: 1
 		ZOffset: -1c511
 	idle-top: proctop
 		ZOffset: 0
@@ -183,6 +192,8 @@ tent:
 		Length: *
 	icon: tenticon
 		UseTilesetExtension: false
+	fake-icon: tenficon
+		UseTilesetExtension: false
 
 kenn:
 	idle:
@@ -197,10 +208,13 @@ kenn:
 
 dome:
 	idle:
+		Offset: 0,-4
 	damaged-idle:
 		Start: 1
+		Offset: 0,-4
 	make: domemake
 		Length: *
+		Offset: 0,-4
 	bib: bib3
 		Length: *
 		UseTilesetExtension: true
@@ -243,6 +257,8 @@ weap:
 	idle:
 	damaged-idle:
 		Start: 1
+	place: weapmake
+		Start: 14
 	make: weapmake
 		Length: *
 	build-top: weap3
@@ -267,10 +283,12 @@ hpad:
 	active:
 		Start: 1
 		Length: 6
+		Tick: 100
 		ZOffset: -1023
 	damaged-active:
 		Start: 8
 		Length: 6
+		Tick: 100
 		ZOffset: -1023
 	make: hpadmake
 		Length: *
@@ -311,10 +329,13 @@ afld:
 
 spen:
 	idle:
+		Offset: 0,2
 	damaged-idle:
 		Start: 1
+		Offset: 0,2
 	make: spenmake
 		Length: *
+		Offset: 0,2
 	icon: spenicon
 	fake-icon: speficon
 
@@ -359,21 +380,21 @@ fix:
 gun:
 	idle:
 		Facings: 32
-		UseClassicFacingFudge: True
+		UseClassicFacings: True
 	recoil:
 		Start: 32
 		Facings: 32
-		UseClassicFacingFudge: True
+		UseClassicFacings: True
 	make: gunmake
 		Length: *
 	damaged-idle:
 		Start: 64
 		Facings: 32
-		UseClassicFacingFudge: True
+		UseClassicFacings: True
 	damaged-recoil:
 		Start: 96
 		Facings: 32
-		UseClassicFacingFudge: True
+		UseClassicFacings: True
 	muzzle: gunfire2
 		Length: 5
 	bib: mbGUN
@@ -385,12 +406,12 @@ gun:
 agun:
 	idle:
 		Facings: 32
-		UseClassicFacingFudge: True
+		UseClassicFacings: True
 		Offset: 0,-13
 	recoil:
 		Start: 32
 		Facings: 32
-		UseClassicFacingFudge: True
+		UseClassicFacings: True
 		Offset: 0,-13
 	make: agunmake
 		Length: *
@@ -398,12 +419,12 @@ agun:
 	damaged-idle:
 		Start: 64
 		Facings: 32
-		UseClassicFacingFudge: True
+		UseClassicFacings: True
 		Offset: 0,-13
 	damaged-recoil:
 		Start: 96
 		Facings: 32
-		UseClassicFacingFudge: True
+		UseClassicFacings: True
 		Offset: 0,-13
 	muzzle: gunfire2
 		Start: 1
@@ -416,20 +437,20 @@ agun:
 sam:
 	idle: sam2
 		Facings: 32
-		UseClassicFacingFudge: True
-		Offset: -2,-2
+		UseClassicFacings: True
+		Offset: -1,-2
 	damaged-idle: sam2
 		Start: 34
 		Facings: 32
-		UseClassicFacingFudge: True
-		Offset: -2,-2
+		UseClassicFacings: True
+		Offset: -1,-2
 	make: sammake
 		Length: *
-		Offset: -2,-2
+		Offset: -1,-2
 	muzzle: samfire
 		Length: 18
 		Facings: 8
-		Offset: -2,-2
+		Offset: -1,6
 	bib: mbSAM
 		Length: *
 		Offset: 0,1
@@ -609,33 +630,6 @@ brik:
 		Start: 32
 		Length: 16
 	icon: brikicon
-
-vgate:
-	make:
-		Length: 7
-	idle:
-		Frames: 6, 5, 4, 3, 2, 1, 0
-		Length: 7
-		ZOffset: -1c511
-	damaged-idle:
-		Frames: 13, 12, 11, 10, 9, 8, 7
-		Length: 7
-		ZOffset: -1c511
-
-agate:
-	make:
-		Length: 7
-	idle:
-		Frames: 6, 5, 4, 3, 2, 1, 0
-		Length: 7
-		ZOffset: -1c511
-	damaged-idle:
-		Frames: 13, 12, 11, 10, 9, 8, 7
-		Length: 7
-		ZOffset: -1c511
-
-sgate:
-	Inherits: agate
 
 sbag:
 	idle:

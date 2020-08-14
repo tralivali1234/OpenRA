@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -26,41 +26,43 @@ namespace OpenRA.Mods.Common.Traits
 	}
 
 	[Desc("Used together with ClassicProductionQueue.")]
-	public class PrimaryBuildingInfo : ITraitInfo
+	public class PrimaryBuildingInfo : ConditionalTraitInfo
 	{
 		[GrantedConditionReference]
 		[Desc("The condition to grant to self while this is the primary building.")]
 		public readonly string PrimaryCondition = null;
 
+		[NotificationReference("Speech")]
 		[Desc("The speech notification to play when selecting a primary building.")]
-		public readonly string SelectionNotification = "PrimaryBuildingSelected";
+		public readonly string SelectionNotification = null;
 
-		public object Create(ActorInitializer init) { return new PrimaryBuilding(init.Self, this); }
+		[Desc("List of production queues for which the primary flag should be set.",
+			"If empty, the list given in the `Produces` property of the `Production` trait will be used.")]
+		public readonly string[] ProductionQueues = { };
+
+		public override object Create(ActorInitializer init) { return new PrimaryBuilding(init.Self, this); }
 	}
 
-	public class PrimaryBuilding : INotifyCreated, IIssueOrder, IResolveOrder
+	public class PrimaryBuilding : ConditionalTrait<PrimaryBuildingInfo>, IIssueOrder, IResolveOrder
 	{
 		const string OrderID = "PrimaryProducer";
 
-		readonly PrimaryBuildingInfo info;
-		ConditionManager conditionManager;
-		int primaryToken = ConditionManager.InvalidConditionToken;
+		int primaryToken = Actor.InvalidConditionToken;
 
 		public bool IsPrimary { get; private set; }
 
 		public PrimaryBuilding(Actor self, PrimaryBuildingInfo info)
-		{
-			this.info = info;
-		}
-
-		void INotifyCreated.Created(Actor self)
-		{
-			conditionManager = self.TraitOrDefault<ConditionManager>();
-		}
+			: base(info) { }
 
 		IEnumerable<IOrderTargeter> IIssueOrder.Orders
 		{
-			get { yield return new DeployOrderTargeter(OrderID, 1); }
+			get
+			{
+				if (IsTraitDisabled)
+					yield break;
+
+				yield return new DeployOrderTargeter(OrderID, 1);
+			}
 		}
 
 		Order IIssueOrder.IssueOrder(Actor self, IOrderTargeter order, Target target, bool queued)
@@ -86,7 +88,9 @@ namespace OpenRA.Mods.Common.Traits
 			{
 				// Cancel existing primaries
 				// TODO: THIS IS SHIT
-				foreach (var p in self.Info.TraitInfo<ProductionInfo>().Produces)
+				var queues = Info.ProductionQueues.Length == 0 ? self.TraitsImplementing<Production>()
+					.Where(t => !t.IsTraitDisabled).SelectMany(pi => pi.Info.Produces) : Info.ProductionQueues;
+				foreach (var q in queues)
 				{
 					foreach (var b in self.World
 							.ActorsWithTrait<PrimaryBuilding>()
@@ -94,17 +98,25 @@ namespace OpenRA.Mods.Common.Traits
 								a.Actor != self &&
 								a.Actor.Owner == self.Owner &&
 								a.Trait.IsPrimary &&
-								a.Actor.Info.TraitInfo<ProductionInfo>().Produces.Contains(p)))
+								a.Actor.TraitsImplementing<Production>().Where(p => !p.IsTraitDisabled).Any(pi => pi.Info.Produces.Contains(q))))
 						b.Trait.SetPrimaryProducer(b.Actor, false);
 				}
 
-				if (conditionManager != null && primaryToken == ConditionManager.InvalidConditionToken && !string.IsNullOrEmpty(info.PrimaryCondition))
-					primaryToken = conditionManager.GrantCondition(self, info.PrimaryCondition);
+				if (primaryToken == Actor.InvalidConditionToken)
+					primaryToken = self.GrantCondition(Info.PrimaryCondition);
 
-				Game.Sound.PlayNotification(self.World.Map.Rules, self.Owner, "Speech", info.SelectionNotification, self.Owner.Faction.InternalName);
+				Game.Sound.PlayNotification(self.World.Map.Rules, self.Owner, "Speech", Info.SelectionNotification, self.Owner.Faction.InternalName);
 			}
-			else if (primaryToken != ConditionManager.InvalidConditionToken)
-				primaryToken = conditionManager.RevokeCondition(self, primaryToken);
+			else if (primaryToken != Actor.InvalidConditionToken)
+				primaryToken = self.RevokeCondition(primaryToken);
+		}
+
+		protected override void TraitEnabled(Actor self) { }
+
+		protected override void TraitDisabled(Actor self)
+		{
+			if (IsPrimary)
+				SetPrimaryProducer(self, !IsPrimary);
 		}
 	}
 }

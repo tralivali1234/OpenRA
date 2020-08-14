@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -9,20 +9,20 @@
  */
 #endregion
 
+using System;
 using System.Linq;
 using OpenRA.Mods.Common.Scripting;
 using OpenRA.Mods.Common.Traits;
-using OpenRA.Traits;
 using OpenRA.Widgets;
 
 namespace OpenRA.Mods.Common.Widgets.Logic
 {
-	public enum IngameInfoPanel { AutoSelect, Map, Objectives, Debug }
+	public enum IngameInfoPanel { AutoSelect, Map, Objectives, Debug, Chat }
 
 	class GameInfoLogic : ChromeLogic
 	{
 		[ObjectCreator.UseCtor]
-		public GameInfoLogic(Widget widget, World world, IngameInfoPanel activePanel)
+		public GameInfoLogic(Widget widget, World world, IngameInfoPanel activePanel, Action<bool> hideMenu)
 		{
 			var lp = world.LocalPlayer;
 			var numTabs = 0;
@@ -48,7 +48,10 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 				var objectivesPanel = widget.Get<ContainerWidget>("OBJECTIVES_PANEL");
 				objectivesPanel.IsVisible = () => activePanel == IngameInfoPanel.Objectives;
 
-				Game.LoadWidget(world, panel, objectivesPanel, new WidgetArgs());
+				Game.LoadWidget(world, panel, objectivesPanel, new WidgetArgs()
+				{
+					{ "hideMenu", hideMenu }
+				});
 
 				if (activePanel == IngameInfoPanel.AutoSelect)
 					activePanel = IngameInfoPanel.Objectives;
@@ -78,14 +81,14 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			// Can't use DeveloperMode.Enabled because there is a hardcoded hack to *always*
 			// enable developer mode for singleplayer games, but we only want to show the button
 			// if it has been explicitly enabled
-			var def = world.Map.Rules.Actors["player"].TraitInfo<DeveloperModeInfo>().Enabled;
+			var def = world.Map.Rules.Actors["player"].TraitInfo<DeveloperModeInfo>().CheckboxEnabled;
 			var developerEnabled = world.LobbyInfo.GlobalSettings.OptionOrDefault("cheats", def);
 			if (lp != null && developerEnabled)
 			{
 				numTabs++;
 				var debugTabButton = widget.Get<ButtonWidget>(string.Concat("BUTTON", numTabs.ToString()));
 				debugTabButton.Text = "Debug";
-				debugTabButton.IsVisible = () => lp != null && numTabs > 1 && !hasError;
+				debugTabButton.IsVisible = () => numTabs > 1 && !hasError;
 				debugTabButton.IsDisabled = () => world.IsGameOver;
 				debugTabButton.OnClick = () => activePanel = IngameInfoPanel.Debug;
 				debugTabButton.IsHighlighted = () => activePanel == IngameInfoPanel.Debug;
@@ -97,6 +100,28 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 
 				if (activePanel == IngameInfoPanel.AutoSelect)
 					activePanel = IngameInfoPanel.Debug;
+			}
+
+			if (world.LobbyInfo.NonBotClients.Count() > 1)
+			{
+				numTabs++;
+				var chatPanelContainer = widget.Get<ContainerWidget>("CHAT_PANEL");
+				var chatTabButton = widget.Get<ButtonWidget>(string.Concat("BUTTON", numTabs.ToString()));
+				chatTabButton.Text = "Chat";
+				chatTabButton.IsVisible = () => numTabs > 1 && !hasError;
+				chatTabButton.IsHighlighted = () => activePanel == IngameInfoPanel.Chat;
+				chatTabButton.OnClick = () =>
+				{
+					activePanel = IngameInfoPanel.Chat;
+					chatPanelContainer.Get<TextFieldWidget>("CHAT_TEXTFIELD").TakeKeyboardFocus();
+				};
+
+				chatPanelContainer.IsVisible = () => activePanel == IngameInfoPanel.Chat;
+
+				Game.LoadWidget(world, "CHAT_CONTAINER", chatPanelContainer, new WidgetArgs() { { "isMenuChat", true } });
+
+				if (activePanel == IngameInfoPanel.AutoSelect)
+					chatTabButton.OnClick();
 			}
 
 			// Handle empty space when tabs aren't displayed

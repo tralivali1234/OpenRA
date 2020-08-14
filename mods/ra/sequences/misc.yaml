@@ -18,15 +18,18 @@ powerdown:
 explosion:
 	Defaults:
 		Length: *
-		ZOffset: 511
+		ZOffset: 2047
 	piff: piff
 	piffs: piffpiff
 	water_piff: wpiff
 	water_piffs: wpifpif
 	small_explosion: veh-hit3
 	med_explosion: veh-hit2
+	flak_explosion_ground: flak
 	small_explosion_air: flak
+		ZOffset: 511 # only used by AA weapons, so a high ZOffset to overlay buildings isn't needed
 	med_explosion_air: veh-hit1
+		ZOffset: 511 # only used by AA weapons, so a high ZOffset to overlay buildings isn't needed
 	large_splash: h2o_exp1
 	napalm: napalm2
 	building_napalm: napalm2
@@ -41,6 +44,8 @@ explosion:
 	large_explosion: frag1
 		Offset: -2,0
 	small_napalm: napalm1
+	offseted_napalm: napalm1 # Used for E4 Explosion
+		Offset: 0, -6
 	large_napalm: napalm3
 	corpse: corpse1
 		ZOffset: -512
@@ -96,16 +101,18 @@ pips:
 		Offset: 9, 5
 	medic:
 		Start: 20
-#	ready:
-#		Start: 3
-#	hold:
-#		Start: 4
+		Offset: 15, 1
+	#ready:
+	#	Start: 3
+	#hold:
+	#	Start: 4
 	tag-fake:
 		Start: 18
 		Offset: 0, 2
 	tag-primary:
 		Start: 2
 		Offset: 0, 2
+	tag-spy: tag-spy
 	pip-empty: pips2
 	pip-green: pips2
 		Start: 1
@@ -396,12 +403,12 @@ parabomb:
 
 smokland:
 	open: playersmoke
-		Length: 60
+		Length: 72
 		Tick: 120
 		ZOffset: 1023
 	idle: playersmoke
-		Start: 60
-		Length: 32
+		Start: 72
+		Length: 20
 		Tick: 120
 		ZOffset: 1023
 
@@ -424,6 +431,8 @@ fire:
 		ZOffset: 1023
 
 rank:
+	Defaults:
+		Offset: 0, 3
 	rank-veteran-1:
 	rank-veteran-2:
 		Start: 1
@@ -431,6 +440,7 @@ rank:
 		Start: 2
 	rank-elite:
 		Start: 3
+		Offset: 1, 3
 
 iconchevrons:
 	veteran:
@@ -481,6 +491,10 @@ gpsdot:
 		Start: 8
 	Biohazard:
 		Start: 9
+	Communications:
+		Start: 10
+	Forward:
+		Start: 11
 
 icon:
 	abomb: atomicon
@@ -516,28 +530,23 @@ minv:
 	icon: jmin
 
 overlay:
-	build-valid-desert:
-	build-valid-interior:
-	build-valid-snow:
-		Start: 2
-	build-valid-temperat:
+	Defaults: trans.icn
+		AddExtension: False
+	build-valid:
 	build-invalid:
-		Start: 1
+		Start: 2
+	target-valid:
 	target-select:
-		Start: 2
-	target-valid-desert:
-	target-valid-interior:
-	target-valid-snow:
-		Start: 2
-	target-valid-temperat:
-	target-invalid:
 		Start: 1
+	target-invalid:
+		Start: 2
 
 editor-overlay:
-	copy: overlay
-		Start: 0
-	paste: overlay
-		Start: 1
+	Defaults: trans.icn
+		AddExtension: False
+	copy:
+	paste:
+		Start: 2
 
 resources:
 	Defaults:
@@ -590,11 +599,11 @@ craters:
 mine:
 	idle:
 		UseTilesetExtension: true
-		ZOffset: -512
+		ZOffset: -1024
 
 gmine:
 	idle:
-		ZOffset: -512
+		ZOffset: -1024
 		UseTilesetExtension: true
 		TilesetOverrides:
 			INTERIOR: TEMPERAT
@@ -614,3 +623,41 @@ ctflag:
 	bib: mbGAP
 		Length: *
 		UseTilesetExtension: true
+
+paradirection:
+	arrow-t: mouse
+		Start: 1
+		Y: -7
+		Offset: 0, -19, 0
+	arrow-tr: mouse
+		Start: 2
+		X: 6
+		Y: -5
+		Offset: 15, -15, 0
+	arrow-r: mouse
+		Start: 3
+		X: 7
+		Offset: 19, 0, 0
+	arrow-br: mouse
+		Start: 4
+		X: 6
+		Y: 5
+		Offset: 15, 15, 0
+	arrow-b: mouse
+		Start: 5
+		Y: 7
+		Offset: 0, 19, 0
+	arrow-bl: mouse
+		Start: 6
+		X: -6
+		Y: 5
+		Offset: -15, 15, 0
+	arrow-l: mouse
+		Start: 7
+		X: -8
+		Offset: -19, 0, 0
+	arrow-tl: mouse
+		Start: 8
+		X: -6
+		y: 5
+		Offset: -15, -15, 0

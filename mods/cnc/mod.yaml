@@ -1,6 +1,8 @@
 Metadata:
 	Title: Tiberian Dawn
 	Version: {DEV_VERSION}
+	Website: https://www.openra.net
+	WebIcon32: https://www.openra.net/images/icons/cnc_32x32.png
 
 PackageFormats: Mix
 
@@ -27,6 +29,7 @@ Packages:
 	cnc|bits/jungle
 	cnc|bits/desert
 	cnc|bits/ss
+	cnc|bits/scripts
 	cnc|uibits
 
 MapFolders:
@@ -89,32 +92,36 @@ Assemblies:
 
 ChromeLayout:
 	cnc|chrome/mainmenu.yaml
-	cnc|chrome/multiplayer.yaml
+	cnc|chrome/mainmenu-prompts.yaml
+	cnc|chrome/playerprofile.yaml
 	cnc|chrome/multiplayer-browser.yaml
+	cnc|chrome/multiplayer-browserpanels.yaml
 	cnc|chrome/multiplayer-createserver.yaml
 	cnc|chrome/multiplayer-directconnect.yaml
-	cnc|chrome/multiplayer-globalchat.yaml
 	cnc|chrome/lobby.yaml
 	cnc|chrome/lobby-mappreview.yaml
 	cnc|chrome/lobby-players.yaml
 	cnc|chrome/lobby-options.yaml
 	cnc|chrome/lobby-music.yaml
+	cnc|chrome/lobby-servers.yaml
 	cnc|chrome/lobby-kickdialogs.yaml
-	cnc|chrome/lobby-globalchat.yaml
 	cnc|chrome/connection.yaml
 	cnc|chrome/color-picker.yaml
 	cnc|chrome/mapchooser.yaml
 	cnc|chrome/replaybrowser.yaml
+	cnc|chrome/gamesave-browser.yaml
+	cnc|chrome/gamesave-loading.yaml
 	cnc|chrome/ingame.yaml
 	cnc|chrome/ingame-chat.yaml
 	cnc|chrome/ingame-menu.yaml
 	cnc|chrome/ingame-debug.yaml
+	cnc|chrome/ingame-infochat.yaml
 	cnc|chrome/ingame-info.yaml
 	cnc|chrome/ingame-infobriefing.yaml
 	cnc|chrome/ingame-infoscripterror.yaml
 	cnc|chrome/ingame-infoobjectives.yaml
 	cnc|chrome/ingame-infostats.yaml
-	cnc|chrome/ingame-observerstats.yaml
+	cnc|chrome/ingame-debuginfo.yaml
 	cnc|chrome/music.yaml
 	cnc|chrome/settings.yaml
 	cnc|chrome/credits.yaml
@@ -136,8 +143,19 @@ Music:
 Translations:
 	cnc|languages/english.yaml
 
+Hotkeys:
+	common|hotkeys/game.yaml
+	common|hotkeys/observer.yaml
+	common|hotkeys/production-common.yaml
+	common|hotkeys/production-peractor.yaml
+	common|hotkeys/supportpowers.yaml
+	common|hotkeys/viewport.yaml
+	cnc|hotkeys.yaml
+
 LoadScreen: CncLoadScreen
 	Image: cnc|uibits/chrome.png
+	Image2x: cnc|uibits/chrome-2x.png
+	Image3x: cnc|uibits/chrome-3x.png
 	Text: Loading
 
 ServerTraits:
@@ -151,30 +169,38 @@ ChromeMetrics:
 	cnc|metrics.yaml
 
 Fonts:
-	Small:
-		Font: common|FreeSans.ttf
-		Size:12
-	Regular:
-		Font: common|FreeSans.ttf
-		Size:14
-	Bold:
-		Font: common|FreeSansBold.ttf
-		Size:14
-	Title:
-		Font: common|FreeSansBold.ttf
-		Size:32
-	MediumBold:
-		Font: common|FreeSansBold.ttf
-		Size:18
-	BigBold:
-		Font: common|FreeSansBold.ttf
-		Size:24
 	Tiny:
 		Font: common|FreeSans.ttf
-		Size:10
+		Size: 10
+		Ascender: 8
 	TinyBold:
 		Font: common|FreeSansBold.ttf
-		Size:10
+		Size: 10
+		Ascender: 8
+	Small:
+		Font: common|FreeSans.ttf
+		Size: 12
+		Ascender: 9
+	Regular:
+		Font: common|FreeSans.ttf
+		Size: 14
+		Ascender: 11
+	Bold:
+		Font: common|FreeSansBold.ttf
+		Size: 14
+		Ascender: 11
+	MediumBold:
+		Font: common|FreeSansBold.ttf
+		Size: 18
+		Ascender: 14
+	BigBold:
+		Font: common|FreeSansBold.ttf
+		Size: 24
+		Ascender: 18
+	Title:
+		Font: common|FreeSansBold.ttf
+		Size: 32
+		Ascender: 24
 
 Missions:
 	./mods/cnc/missions.yaml
@@ -189,7 +215,7 @@ SoundFormats: Aud, Wav
 
 SpriteFormats: ShpTD, TmpTD, ShpTS, TmpRA
 
-SpriteSequenceFormat: TilesetSpecificSpriteSequence
+SpriteSequenceFormat: ClassicTilesetSpecificSpriteSequence
 	TilesetExtensions:
 		TEMPERAT: .tem
 		WINTER: .win
@@ -197,7 +223,16 @@ SpriteSequenceFormat: TilesetSpecificSpriteSequence
 		DESERT: .des
 		JUNGLE: .jun
 
+ModelSequenceFormat: PlaceholderModelSequence
+
+AssetBrowser:
+	SupportedExtensions: .shp, .tem, .des, .sno, .jun, .vqa
+
 GameSpeeds:
+	slowest:
+		Name: Slowest
+		Timestep: 80
+		OrderLatency: 2
 	slower:
 		Name: Slower
 		Timestep: 50
@@ -220,6 +255,7 @@ GameSpeeds:
 		OrderLatency: 6
 
 ColorValidator:
+	TeamColorPresets: f70606, ff7a22, f8d3b3, f8e947, 94b319, f335a0, a64d6c, ce08f9, f5b2db, 12b572, 502048, 1d06f7, 328dff, 78dbf8, cef6b1, 391d1d
 
 ModContent:
 	InstallPromptMessage: Tiberian Dawn requires artwork and audio from the original game.\n\nQuick Install will automatically download this content (without music\nor videos) from a mirror of the 2007 C&C Gold freeware release.\n\nAdvanced Install includes options for downloading the music and for\ncopying the videos and other content from an original game disc.
@@ -252,3 +288,6 @@ ModContent:
 		cnc|installer/gdi95.yaml
 		cnc|installer/nod95.yaml
 		cnc|installer/origin.yaml
+
+DiscordService:
+	ApplicationId: 699223250181292033

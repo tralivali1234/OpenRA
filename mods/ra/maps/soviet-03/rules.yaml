@@ -16,41 +16,24 @@ World:
 			hard: Hard
 		Default: easy
 
-^TechBuilding:
-	AutoTargetIgnore:
-
-^Infantry:
-	-GivesBounty:
-
-^Ship:
-	-GivesBounty:
+Player:
+	LobbyPrerequisiteCheckbox@GLOBALBOUNTY:
+		Enabled: False
+		Locked: True
 
 ^Helicopter:
-	-GivesBounty:
 	Health:
-		HP: 9000
-
-BARL:
-	Health:
-		HP: 1
-	Explodes:
-		Weapon: MissionBarrelExplode
-
-BRL3:
-	Health:
-		HP: 1
-	Explodes:
-		Weapon: MissionBarrelExplode
+		HP: 900000
 
 FENC:
 	Health:
-		HP: 9000
+		HP: 900000
 
 V01:
+	Inherits@CARGOPIPS: ^CargoPips
 	Cargo:
 		Types: Infantry
 		MaxWeight: 1
-		PipCount: 1
 
 V05:
 	SpawnActorOnDeath:

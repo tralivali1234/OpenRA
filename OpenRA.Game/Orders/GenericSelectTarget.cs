@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,13 +10,15 @@
 #endregion
 
 using System.Collections.Generic;
+using System.Linq;
+using OpenRA.Traits;
 
 namespace OpenRA.Orders
 {
 	public class GenericSelectTarget : UnitOrderGenerator
 	{
+		public readonly string OrderName;
 		protected readonly IEnumerable<Actor> Subjects;
-		protected readonly string OrderName;
 		protected readonly string Cursor;
 		protected readonly MouseButton ExpectedButton;
 
@@ -49,8 +51,9 @@ namespace OpenRA.Orders
 			if (mi.Button == ExpectedButton && world.Map.Contains(cell))
 			{
 				world.CancelInputMode();
-				foreach (var subject in Subjects)
-					yield return new Order(OrderName, subject, false) { TargetLocation = cell };
+
+				var queued = mi.Modifiers.HasModifier(Modifiers.Shift);
+				yield return new Order(OrderName, null, Target.FromCell(world, cell), queued, null, Subjects.ToArray());
 			}
 		}
 
@@ -64,5 +67,7 @@ namespace OpenRA.Orders
 			// Custom order generators always override selection
 			return true;
 		}
+
+		public override bool ClearSelectionOnLeftClick { get { return false; } }
 	}
 }

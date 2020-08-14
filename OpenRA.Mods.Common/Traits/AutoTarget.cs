@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,17 +10,37 @@
 #endregion
 
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
+using OpenRA.Primitives;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
 {
-	[Desc("The actor will automatically engage the enemy when it is in range.")]
-	public class AutoTargetInfo : ConditionalTraitInfo, Requires<AttackBaseInfo>, UsesInit<StanceInit>
+	public enum UnitStance { HoldFire, ReturnFire, Defend, AttackAnything }
+
+	[RequireExplicitImplementation]
+	public interface IActivityNotifyStanceChanged : IActivityInterface
 	{
-		[Desc("It will try to hunt down the enemy if it is not set to defend.")]
+		void StanceChanged(Actor self, AutoTarget autoTarget, UnitStance oldStance, UnitStance newStance);
+	}
+
+	[RequireExplicitImplementation]
+	public interface INotifyStanceChanged
+	{
+		void StanceChanged(Actor self, AutoTarget autoTarget, UnitStance oldStance, UnitStance newStance);
+	}
+
+	[Desc("The actor will automatically engage the enemy when it is in range.")]
+	public class AutoTargetInfo : ConditionalTraitInfo, Requires<AttackBaseInfo>, IEditorActorOptions
+	{
+		[Desc("It will try to hunt down the enemy if it is set to AttackAnything.")]
 		public readonly bool AllowMovement = true;
+
+		[Desc("It will try to pivot to face the enemy if stance is not HoldFire.")]
+		public readonly bool AllowTurning = true;
+
+		[Desc("Scan for new targets when idle.")]
+		public readonly bool ScanOnIdle = true;
 
 		[Desc("Set to a value >1 to override weapons maximum range for this.")]
 		public readonly int ScanRadius = -1;
@@ -32,6 +52,25 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Possible values are HoldFire, ReturnFire, Defend and AttackAnything. Used for human players.")]
 		public readonly UnitStance InitialStance = UnitStance.Defend;
 
+		[GrantedConditionReference]
+		[Desc("The condition to grant to self while in the HoldFire stance.")]
+		public readonly string HoldFireCondition = null;
+
+		[GrantedConditionReference]
+		[Desc("The condition to grant to self while in the ReturnFire stance.")]
+		public readonly string ReturnFireCondition = null;
+
+		[GrantedConditionReference]
+		[Desc("The condition to grant to self while in the Defend stance.")]
+		public readonly string DefendCondition = null;
+
+		[GrantedConditionReference]
+		[Desc("The condition to grant to self while in the AttackAnything stance.")]
+		public readonly string AttackAnythingCondition = null;
+
+		[FieldLoader.Ignore]
+		public readonly Dictionary<UnitStance, string> ConditionByStance = new Dictionary<UnitStance, string>();
+
 		[Desc("Allow the player to change the unit stance.")]
 		public readonly bool EnableStances = true;
 
@@ -41,62 +80,161 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Ticks to wait until next AutoTarget: attempt.")]
 		public readonly int MaximumScanTimeInterval = 8;
 
-		public readonly bool TargetWhenIdle = true;
-
-		public readonly bool TargetWhenDamaged = true;
+		[Desc("Display order for the stance dropdown in the map editor")]
+		public readonly int EditorStanceDisplayOrder = 1;
 
 		public override object Create(ActorInitializer init) { return new AutoTarget(init, this); }
+
+		public override void RulesetLoaded(Ruleset rules, ActorInfo info)
+		{
+			base.RulesetLoaded(rules, info);
+
+			if (HoldFireCondition != null)
+				ConditionByStance[UnitStance.HoldFire] = HoldFireCondition;
+
+			if (ReturnFireCondition != null)
+				ConditionByStance[UnitStance.ReturnFire] = ReturnFireCondition;
+
+			if (DefendCondition != null)
+				ConditionByStance[UnitStance.Defend] = DefendCondition;
+
+			if (AttackAnythingCondition != null)
+				ConditionByStance[UnitStance.AttackAnything] = AttackAnythingCondition;
+		}
+
+		IEnumerable<EditorActorOption> IEditorActorOptions.ActorOptions(ActorInfo ai, World world)
+		{
+			// Indexed by UnitStance
+			var stances = new[] { "holdfire", "returnfire", "defend", "attackanything" };
+
+			var labels = new Dictionary<string, string>()
+			{
+				{ "holdfire", "Hold Fire" },
+				{ "returnfire", "Return Fire" },
+				{ "defend", "Defend" },
+				{ "attackanything", "Attack Anything" },
+			};
+
+			yield return new EditorActorDropdown("Stance", EditorStanceDisplayOrder, labels,
+				actor =>
+				{
+					var init = actor.GetInitOrDefault<StanceInit>(this);
+					var stance = init != null ? init.Value : InitialStance;
+					return stances[(int)stance];
+				},
+				(actor, value) => actor.ReplaceInit(new StanceInit(this, (UnitStance)stances.IndexOf(value))));
+		}
 	}
 
-	public enum UnitStance { HoldFire, ReturnFire, Defend, AttackAnything }
-
-	public class AutoTarget : ConditionalTrait<AutoTargetInfo>, INotifyIdle, INotifyDamage, ITick, IResolveOrder, ISync
+	public class AutoTarget : ConditionalTrait<AutoTargetInfo>, INotifyIdle, INotifyDamage, ITick, IResolveOrder, ISync, INotifyOwnerChanged
 	{
-		readonly IEnumerable<AttackBase> activeAttackBases;
-		readonly AttackFollow[] attackFollows;
-		[Sync] int nextScanTime = 0;
+		public readonly IEnumerable<AttackBase> ActiveAttackBases;
 
-		public UnitStance Stance;
-		[Sync] public Actor Aggressor;
-		[Sync] public Actor TargetedActor;
+		readonly bool allowMovement;
+
+		[Sync]
+		int nextScanTime = 0;
+
+		public UnitStance Stance { get { return stance; } }
+
+		[Sync]
+		public Actor Aggressor;
 
 		// NOT SYNCED: do not refer to this anywhere other than UI code
 		public UnitStance PredictedStance;
+
+		UnitStance stance;
+		IDisableAutoTarget[] disableAutoTarget;
+		INotifyStanceChanged[] notifyStanceChanged;
+		IEnumerable<AutoTargetPriorityInfo> activeTargetPriorities;
+		int conditionToken = Actor.InvalidConditionToken;
+
+		public void SetStance(Actor self, UnitStance value)
+		{
+			if (stance == value)
+				return;
+
+			var oldStance = stance;
+			stance = value;
+			ApplyStanceCondition(self);
+
+			foreach (var nsc in notifyStanceChanged)
+				nsc.StanceChanged(self, this, oldStance, stance);
+
+			if (self.CurrentActivity != null)
+				foreach (var a in self.CurrentActivity.ActivitiesImplementing<IActivityNotifyStanceChanged>())
+					a.StanceChanged(self, this, oldStance, stance);
+		}
+
+		void ApplyStanceCondition(Actor self)
+		{
+			if (conditionToken != Actor.InvalidConditionToken)
+				conditionToken = self.RevokeCondition(conditionToken);
+
+			string condition;
+			if (Info.ConditionByStance.TryGetValue(stance, out condition))
+				conditionToken = self.GrantCondition(condition);
+		}
 
 		public AutoTarget(ActorInitializer init, AutoTargetInfo info)
 			: base(info)
 		{
 			var self = init.Self;
-			activeAttackBases = self.TraitsImplementing<AttackBase>().ToArray().Where(Exts.IsTraitEnabled);
+			ActiveAttackBases = self.TraitsImplementing<AttackBase>().ToArray().Where(Exts.IsTraitEnabled);
 
-			if (init.Contains<StanceInit>())
-				Stance = init.Get<StanceInit, UnitStance>();
-			else
-				Stance = self.Owner.IsBot || !self.Owner.Playable ? info.InitialStanceAI : info.InitialStance;
+			stance = init.GetValue<StanceInit, UnitStance>(self.Owner.IsBot || !self.Owner.Playable ? info.InitialStanceAI : info.InitialStance);
 
-			PredictedStance = Stance;
-			attackFollows = self.TraitsImplementing<AttackFollow>().ToArray();
+			PredictedStance = stance;
+
+			allowMovement = Info.AllowMovement && self.TraitOrDefault<IMove>() != null;
 		}
 
-		public void ResolveOrder(Actor self, Order order)
+		protected override void Created(Actor self)
+		{
+			// AutoTargetPriority and their Priorities are fixed - so we can safely cache them with ToArray.
+			// IsTraitEnabled can change over time, and so must appear after the ToArray so it gets re-evaluated each time.
+			activeTargetPriorities =
+				self.TraitsImplementing<AutoTargetPriority>()
+					.OrderByDescending(ati => ati.Info.Priority).ToArray()
+					.Where(Exts.IsTraitEnabled).Select(atp => atp.Info);
+
+			disableAutoTarget = self.TraitsImplementing<IDisableAutoTarget>().ToArray();
+			notifyStanceChanged = self.TraitsImplementing<INotifyStanceChanged>().ToArray();
+			ApplyStanceCondition(self);
+
+			base.Created(self);
+		}
+
+		void INotifyOwnerChanged.OnOwnerChanged(Actor self, Player oldOwner, Player newOwner)
+		{
+			PredictedStance = self.Owner.IsBot || !self.Owner.Playable ? Info.InitialStanceAI : Info.InitialStance;
+			SetStance(self, PredictedStance);
+		}
+
+		void IResolveOrder.ResolveOrder(Actor self, Order order)
 		{
 			if (order.OrderString == "SetUnitStance" && Info.EnableStances)
-				Stance = (UnitStance)order.ExtraData;
+				SetStance(self, (UnitStance)order.ExtraData);
 		}
 
-		public void Damaged(Actor self, AttackInfo e)
+		void INotifyDamage.Damaged(Actor self, AttackInfo e)
 		{
-			if (IsTraitDisabled)
+			if (IsTraitDisabled || !self.IsIdle || Stance < UnitStance.ReturnFire)
 				return;
 
-			if (!self.IsIdle || !Info.TargetWhenDamaged)
+			// Don't retaliate against healers
+			if (e.Damage.Value < 0)
 				return;
 
 			var attacker = e.Attacker;
-			if (attacker.Disposed || Stance < UnitStance.ReturnFire)
+			if (attacker.Disposed)
 				return;
 
-			if (!attacker.IsInWorld && !attacker.Disposed)
+			foreach (var dat in disableAutoTarget)
+				if (dat.DisableAutoTarget(self))
+					return;
+
+			if (!attacker.IsInWorld)
 			{
 				// If the aggressor is in a transport, then attack the transport instead
 				var passenger = attacker.TraitOrDefault<Passenger>();
@@ -104,52 +242,36 @@ namespace OpenRA.Mods.Common.Traits
 					attacker = passenger.Transport;
 			}
 
-			// not a lot we can do about things we can't hurt... although maybe we should automatically run away?
+			// Don't fire at an invisible enemy when we can't move to reveal it
+			var allowMove = allowMovement && Stance > UnitStance.Defend;
+			if (!allowMove && !attacker.CanBeViewedByPlayer(self.Owner))
+				return;
+
+			// Not a lot we can do about things we can't hurt... although maybe we should automatically run away?
 			var attackerAsTarget = Target.FromActor(attacker);
-			if (!activeAttackBases.Any(a => a.HasAnyValidWeapons(attackerAsTarget)))
+			if (!ActiveAttackBases.Any(a => a.HasAnyValidWeapons(attackerAsTarget)))
 				return;
 
-			// don't retaliate against own units force-firing on us. It's usually not what the player wanted.
+			// Don't retaliate against own units force-firing on us. It's usually not what the player wanted.
 			if (attacker.AppearsFriendlyTo(self))
-				return;
-
-			// don't retaliate against healers
-			if (e.Damage.Value < 0)
 				return;
 
 			Aggressor = attacker;
 
-			bool allowMove;
-			if (ShouldAttack(out allowMove))
-				Attack(self, Aggressor, allowMove);
+			Attack(self, Target.FromActor(Aggressor), allowMove);
 		}
 
-		public void TickIdle(Actor self)
+		void INotifyIdle.TickIdle(Actor self)
 		{
-			if (IsTraitDisabled)
+			if (IsTraitDisabled || !Info.ScanOnIdle || Stance < UnitStance.Defend)
 				return;
 
-			if (Stance < UnitStance.Defend || !Info.TargetWhenIdle)
-				return;
-
-			bool allowMove;
-			if (ShouldAttack(out allowMove))
-				ScanAndAttack(self, allowMove);
+			var allowMove = allowMovement && Stance > UnitStance.Defend;
+			var allowTurn = Info.AllowTurning && Stance > UnitStance.HoldFire;
+			ScanAndAttack(self, allowMove, allowTurn);
 		}
 
-		bool ShouldAttack(out bool allowMove)
-		{
-			allowMove = Info.AllowMovement && Stance != UnitStance.Defend;
-
-			// PERF: Avoid LINQ.
-			foreach (var attackFollow in attackFollows)
-				if (!attackFollow.IsTraitDisabled && attackFollow.IsReachableTarget(attackFollow.Target, allowMove))
-					return false;
-
-			return true;
-		}
-
-		public void Tick(Actor self)
+		void ITick.Tick(Actor self)
 		{
 			if (IsTraitDisabled)
 				return;
@@ -158,128 +280,173 @@ namespace OpenRA.Mods.Common.Traits
 				--nextScanTime;
 		}
 
-		public Actor ScanForTarget(Actor self, bool allowMove)
+		public Target ScanForTarget(Actor self, bool allowMove, bool allowTurn)
 		{
-			if (nextScanTime <= 0 && activeAttackBases.Any())
+			if (nextScanTime <= 0 && ActiveAttackBases.Any())
 			{
+				foreach (var dat in disableAutoTarget)
+					if (dat.DisableAutoTarget(self))
+						return Target.Invalid;
+
 				nextScanTime = self.World.SharedRandom.Next(Info.MinimumScanTimeInterval, Info.MaximumScanTimeInterval);
 
-				foreach (var ab in activeAttackBases)
+				foreach (var ab in ActiveAttackBases)
 				{
 					// If we can't attack right now, there's no need to try and find a target.
 					var attackStances = ab.UnforcedAttackTargetStances();
 					if (attackStances != OpenRA.Traits.Stance.None)
 					{
 						var range = Info.ScanRadius > 0 ? WDist.FromCells(Info.ScanRadius) : ab.GetMaximumRange();
-						return ChooseTarget(self, ab, attackStances, range, allowMove);
+						return ChooseTarget(self, ab, attackStances, range, allowMove, allowTurn);
 					}
 				}
 			}
 
-			return null;
+			return Target.Invalid;
 		}
 
-		public void ScanAndAttack(Actor self, bool allowMove)
+		public void ScanAndAttack(Actor self, bool allowMove, bool allowTurn)
 		{
-			var targetActor = ScanForTarget(self, allowMove);
-			if (targetActor != null)
-				Attack(self, targetActor, allowMove);
+			var target = ScanForTarget(self, allowMove, allowTurn);
+			if (target.Type != TargetType.Invalid)
+				Attack(self, target, allowMove);
 		}
 
-		void Attack(Actor self, Actor targetActor, bool allowMove)
+		void Attack(Actor self, Target target, bool allowMove)
 		{
-			TargetedActor = targetActor;
-			var target = Target.FromActor(targetActor);
-			self.SetTargetLine(target, Color.Red, false);
-
-			foreach (var ab in activeAttackBases)
-				ab.AttackTarget(target, false, allowMove);
+			foreach (var ab in ActiveAttackBases)
+				ab.AttackTarget(target, AttackSource.AutoTarget, false, allowMove);
 		}
 
-		Actor ChooseTarget(Actor self, AttackBase ab, Stance attackStances, WDist range, bool allowMove)
+		public bool HasValidTargetPriority(Actor self, Player owner, BitSet<TargetableType> targetTypes)
 		{
-			var actorsByArmament = new Dictionary<Armament, List<Actor>>();
-			var actorsInRange = self.World.FindActorsInCircle(self.CenterPosition, range);
-			foreach (var actor in actorsInRange)
+			if (owner == null || Stance <= UnitStance.ReturnFire)
+				return false;
+
+			return activeTargetPriorities.Any(ati =>
 			{
-				// PERF: Most units can only attack enemy units. If this is the case but the target is not an enemy, we
-				// can bail early and avoid the more expensive targeting checks and armament selection. For groups of
-				// allied units, this helps significantly reduce the cost of auto target scans. This is important as
-				// these groups will continuously rescan their allies until an enemy finally comes into range.
-				if (attackStances == OpenRA.Traits.Stance.Enemy && !actor.AppearsHostileTo(self))
+				// Incompatible stances
+				if (!ati.ValidStances.HasStance(self.Owner.Stances[owner]))
+					return false;
+
+				// Incompatible target types
+				if (!ati.ValidTargets.Overlaps(targetTypes) || ati.InvalidTargets.Overlaps(targetTypes))
+					return false;
+
+				return true;
+			});
+		}
+
+		Target ChooseTarget(Actor self, AttackBase ab, Stance attackStances, WDist scanRange, bool allowMove, bool allowTurn)
+		{
+			var chosenTarget = Target.Invalid;
+			var chosenTargetPriority = int.MinValue;
+			int chosenTargetRange = 0;
+
+			var activePriorities = activeTargetPriorities.ToList();
+			if (activePriorities.Count == 0)
+				return chosenTarget;
+
+			var targetsInRange = self.World.FindActorsInCircle(self.CenterPosition, scanRange)
+				.Select(Target.FromActor)
+				.Concat(self.Owner.FrozenActorLayer.FrozenActorsInCircle(self.World, self.CenterPosition, scanRange)
+					.Select(Target.FromFrozenActor));
+
+			foreach (var target in targetsInRange)
+			{
+				BitSet<TargetableType> targetTypes;
+				Player owner;
+				if (target.Type == TargetType.Actor)
+				{
+					// PERF: Most units can only attack enemy units. If this is the case but the target is not an enemy, we
+					// can bail early and avoid the more expensive targeting checks and armament selection. For groups of
+					// allied units, this helps significantly reduce the cost of auto target scans. This is important as
+					// these groups will continuously rescan their allies until an enemy finally comes into range.
+					if (attackStances == OpenRA.Traits.Stance.Enemy && !target.Actor.AppearsHostileTo(self))
+						continue;
+
+					// Check whether we can auto-target this actor
+					targetTypes = target.Actor.GetEnabledTargetTypes();
+
+					if (PreventsAutoTarget(self, target.Actor) || !target.Actor.CanBeViewedByPlayer(self.Owner))
+						continue;
+
+					owner = target.Actor.Owner;
+				}
+				else if (target.Type == TargetType.FrozenActor)
+				{
+					if (attackStances == OpenRA.Traits.Stance.Enemy && self.Owner.Stances[target.FrozenActor.Owner] == OpenRA.Traits.Stance.Ally)
+						continue;
+
+					targetTypes = target.FrozenActor.TargetTypes;
+					owner = target.FrozenActor.Owner;
+				}
+				else
 					continue;
 
-				if (PreventsAutoTarget(self, actor) || !self.Owner.CanTargetActor(actor))
+				var validPriorities = activePriorities.Where(ati =>
+				{
+					// Already have a higher priority target
+					if (ati.Priority < chosenTargetPriority)
+						return false;
+
+					// Incompatible stances
+					if (!ati.ValidStances.HasStance(self.Owner.Stances[owner]))
+						return false;
+
+					// Incompatible target types
+					if (!ati.ValidTargets.Overlaps(targetTypes) || ati.InvalidTargets.Overlaps(targetTypes))
+						return false;
+
+					return true;
+				}).ToList();
+
+				if (validPriorities.Count == 0)
 					continue;
 
-				// Select only the first compatible armament for each actor: if this actor is selected
-				// it will be thanks to the first armament anyways, since that is the first selection
-				// criterion
-				var target = Target.FromActor(actor);
+				// Make sure that we can actually fire on the actor
 				var armaments = ab.ChooseArmamentsForTarget(target, false);
 				if (!allowMove)
 					armaments = armaments.Where(arm =>
 						target.IsInRange(self.CenterPosition, arm.MaxRange()) &&
 						!target.IsInRange(self.CenterPosition, arm.Weapon.MinRange));
 
-				var armament = armaments.FirstOrDefault();
-				if (armament == null)
+				if (!armaments.Any())
 					continue;
 
-				List<Actor> actors;
-				if (actorsByArmament.TryGetValue(armament, out actors))
-					actors.Add(actor);
-				else
-					actorsByArmament.Add(armament, new List<Actor> { actor });
+				if (!allowTurn && !ab.TargetInFiringArc(self, target, 4 * ab.Info.FacingTolerance))
+					continue;
+
+				// Evaluate whether we want to target this actor
+				var targetRange = (target.CenterPosition - self.CenterPosition).Length;
+				foreach (var ati in validPriorities)
+				{
+					if (chosenTarget.Type == TargetType.Invalid || chosenTargetPriority < ati.Priority
+						|| (chosenTargetPriority == ati.Priority && targetRange < chosenTargetRange))
+					{
+						chosenTarget = target;
+						chosenTargetPriority = ati.Priority;
+						chosenTargetRange = targetRange;
+					}
+				}
 			}
 
-			// Armaments are enumerated in attack.Armaments in construct order
-			// When autotargeting, first choose targets according to the used armament construct order
-			// And then according to distance from actor
-			// This enables preferential treatment of certain armaments
-			// (e.g. tesla trooper's tesla zap should have precedence over tesla charge)
-			foreach (var arm in ab.Armaments)
-			{
-				List<Actor> actors;
-				if (actorsByArmament.TryGetValue(arm, out actors))
-					return actors.ClosestTo(self);
-			}
-
-			return null;
+			return chosenTarget;
 		}
 
 		bool PreventsAutoTarget(Actor attacker, Actor target)
 		{
-			foreach (var pat in target.TraitsImplementing<IPreventsAutoTarget>())
-				if (pat.PreventsAutoTarget(target, attacker))
+			foreach (var deat in target.TraitsImplementing<IDisableEnemyAutoTarget>())
+				if (deat.DisableEnemyAutoTarget(target, attacker))
 					return true;
 
 			return false;
 		}
 	}
 
-	[Desc("Will not get automatically targeted by enemy (like walls)")]
-	class AutoTargetIgnoreInfo : ConditionalTraitInfo
+	public class StanceInit : ValueActorInit<UnitStance>, ISingleInstanceInit
 	{
-		public override object Create(ActorInitializer init) { return new AutoTargetIgnore(this); }
-	}
-
-	class AutoTargetIgnore : ConditionalTrait<AutoTargetIgnoreInfo>, IPreventsAutoTarget
-	{
-		public AutoTargetIgnore(AutoTargetIgnoreInfo info)
-			: base(info) { }
-
-		public bool PreventsAutoTarget(Actor self, Actor attacker)
-		{
-			return !IsTraitDisabled;
-		}
-	}
-
-	public class StanceInit : IActorInit<UnitStance>
-	{
-		[FieldFromYamlKey] readonly UnitStance value = UnitStance.AttackAnything;
-		public StanceInit() { }
-		public StanceInit(UnitStance init) { value = init; }
-		public UnitStance Value(World world) { return value; }
+		public StanceInit(TraitInfo info, UnitStance value)
+			: base(info, value) { }
 	}
 }

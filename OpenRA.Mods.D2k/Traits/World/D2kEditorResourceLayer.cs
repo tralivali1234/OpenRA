@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -11,12 +11,10 @@
 
 using System.Linq;
 using OpenRA.Mods.Common.Traits;
-using OpenRA.Traits;
 
 namespace OpenRA.Mods.D2k.Traits
 {
-	using CellContents = D2kResourceLayer.CellContents;
-	using ClearSides = D2kResourceLayer.ClearSides;
+	using ClearSides = D2kResourceRenderer.ClearSides;
 
 	[Desc("Used to render spice with round borders.")]
 	public class D2kEditorResourceLayerInfo : EditorResourceLayerInfo
@@ -29,14 +27,14 @@ namespace OpenRA.Mods.D2k.Traits
 		public D2kEditorResourceLayer(Actor self)
 			: base(self) { }
 
-		public override CellContents UpdateDirtyTile(CPos c)
+		public override EditorCellContents UpdateDirtyTile(CPos c)
 		{
 			var t = Tiles[c];
 
 			// Empty tile
 			if (t.Type == null)
 			{
-				t.Sprite = null;
+				t.Sequence = null;
 				return t;
 			}
 
@@ -50,21 +48,25 @@ namespace OpenRA.Mods.D2k.Traits
 			var clear = FindClearSides(t.Type, c);
 			if (clear == ClearSides.None)
 			{
-				var sprites = D2kResourceLayer.Variants[t.Variant];
+				var sprites = D2kResourceRenderer.Variants[t.Variant];
 				var frame = t.Density > t.Type.Info.MaxDensity / 2 ? 1 : 0;
-				t.Sprite = t.Type.Variants.First().Value[sprites[frame]];
+				t.Sequence = t.Type.Variants.First().Value;
+				t.Frame = sprites[frame];
 			}
-			else if (D2kResourceLayer.SpriteMap.TryGetValue(clear, out index))
-				t.Sprite = t.Type.Variants.First().Value[index];
+			else if (D2kResourceRenderer.SpriteMap.TryGetValue(clear, out index))
+			{
+				t.Sequence = t.Type.Variants.First().Value;
+				t.Frame = index;
+			}
 			else
-				t.Sprite = null;
+				t.Sequence = null;
 
 			return t;
 		}
 
 		protected override string ChooseRandomVariant(ResourceType t)
 		{
-			return D2kResourceLayer.Variants.Keys.Random(Game.CosmeticRandom);
+			return D2kResourceRenderer.Variants.Keys.Random(Game.CosmeticRandom);
 		}
 
 		bool CellContains(CPos c, ResourceType t)

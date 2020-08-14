@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -12,7 +12,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using OpenRA.FileSystem;
@@ -26,16 +25,12 @@ namespace OpenRA
 		readonly Dictionary<string, Manifest> mods;
 		readonly SheetBuilder sheetBuilder;
 
-		readonly Dictionary<string, Sprite> icons = new Dictionary<string, Sprite>();
-		public readonly IReadOnlyDictionary<string, Sprite> Icons;
-
 		/// <summary>Initializes the collection of locally installed mods.</summary>
 		/// <param name="searchPaths">Filesystem paths to search for mod packages.</param>
 		/// <param name="explicitPaths">Filesystem paths to additional mod packages.</param>
 		public InstalledMods(IEnumerable<string> searchPaths, IEnumerable<string> explicitPaths)
 		{
 			sheetBuilder = new SheetBuilder(SheetType.BGRA, 256);
-			Icons = new ReadOnlyDictionary<string, Sprite>(icons);
 			mods = GetInstalledMods(searchPaths, explicitPaths);
 		}
 
@@ -69,26 +64,24 @@ namespace OpenRA
 			try
 			{
 				if (!Directory.Exists(path))
-					throw new InvalidDataException(path + " is not a valid mod package");
+				{
+					Log.Write("debug", path + " is not a valid mod package");
+					return null;
+				}
 
 				package = new Folder(path);
-				if (!package.Contains("mod.yaml"))
-					throw new InvalidDataException(path + " is not a valid mod package");
-
-				using (var stream = package.GetStream("icon.png"))
-					if (stream != null)
-						using (var bitmap = new Bitmap(stream))
-							icons[id] = sheetBuilder.Add(bitmap);
-
-				return new Manifest(id, package);
+				if (package.Contains("mod.yaml"))
+					return new Manifest(id, package);
 			}
-			catch (Exception)
+			catch (Exception e)
 			{
-				if (package != null)
-					package.Dispose();
-
-				return null;
+				Log.Write("debug", "Load mod '{0}': {1}".F(path, e));
 			}
+
+			if (package != null)
+				package.Dispose();
+
+			return null;
 		}
 
 		Dictionary<string, Manifest> GetInstalledMods(IEnumerable<string> searchPaths, IEnumerable<string> explicitPaths)
@@ -100,9 +93,6 @@ namespace OpenRA
 			foreach (var pair in candidates)
 			{
 				var mod = LoadMod(pair.First, pair.Second);
-
-				// Mods in the support directory and oramod packages (which are listed later
-				// in the CandidateMods list) override mods in the main install.
 				if (mod != null)
 					ret[pair.First] = mod;
 			}

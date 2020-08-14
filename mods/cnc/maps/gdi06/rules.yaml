@@ -1,6 +1,6 @@
 World:
 	LuaScript:
-		Scripts: gdi06.lua
+		Scripts: campaign-global.lua, gdi06.lua
 	MusicPlaylist:
 		BackgroundMusic: rain-ambient
 		StartingMusic: rain
@@ -30,8 +30,8 @@ World:
 		WinVideo: sabotage.vqa
 		LossVideo: gdilose.vqa
 	MapOptions:
-		ShortGameLocked: True
-		ShortGameEnabled: True
+		ShortGameCheckboxLocked: True
+		ShortGameCheckboxEnabled: True
 	ScriptLobbyDropdown@difficulty:
 		ID: difficulty
 		Label: Difficulty
@@ -40,6 +40,7 @@ World:
 			normal: Normal
 			hard: Hard
 		Default: easy
+		Locked: false
 
 Player:
 	PlayerResources:
@@ -60,11 +61,10 @@ OLDLST:
 	Inherits: LST
 	-WithRoof:
 	-Selectable:
-	SelectionDecorations:
-		RenderSelectionBars: False
 	RejectsOrders:
 	Cargo:
 		Types: disabled
+	Interactable:
 
 SAM:
 	SpawnActorOnDeath:
@@ -74,18 +74,19 @@ RMBO:
 	MustBeDestroyed:
 		RequiredForShortGame: true
 	AutoTarget:
-		TargetWhenIdle: false
-		TargetWhenDamaged: true
+		EnableStances: false
+		InitialStance: ReturnFire
 	Health:
-		HP: 150
+		HP: 15000
 
 RMBO.easy:
 	Inherits: RMBO
 	Health:
-		HP: 300
-	SelfHealing:
+		HP: 30000
+	ChangesHealth:
+		Step: 500
 		Delay: 10
-		HealIfBelow: 50
+		StartIfBelow: 50
 		DamageCooldown: 200
 	RenderSprites:
 		Image: RMBO
@@ -93,6 +94,8 @@ RMBO.easy:
 RMBO.hard:
 	Inherits: RMBO
 	-AutoTarget:
+	-AutoTargetPriority@DEFAULT:
+	-AutoTargetPriority@ATTACKANYTHING:
 	-AttackMove:
 	RenderSprites:
 		Image: RMBO

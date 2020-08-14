@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -25,9 +25,9 @@ namespace OpenRA.Mods.Common.Traits
 		CPos Location { get; }
 	}
 
-	class BridgeLayerInfo : ITraitInfo
+	class BridgeLayerInfo : TraitInfo
 	{
-		public object Create(ActorInitializer init) { return new BridgeLayer(init.World); }
+		public override object Create(ActorInitializer init) { return new BridgeLayer(init.World); }
 	}
 
 	class BridgeLayer
@@ -44,14 +44,14 @@ namespace OpenRA.Mods.Common.Traits
 		public void Add(Actor b)
 		{
 			var buildingInfo = b.Info.TraitInfo<BuildingInfo>();
-			foreach (var c in FootprintUtils.PathableTiles(b.Info.Name, buildingInfo, b.Location))
+			foreach (var c in buildingInfo.PathableTiles(b.Location))
 				bridges[c] = b;
 		}
 
 		public void Remove(Actor b)
 		{
 			var buildingInfo = b.Info.TraitInfo<BuildingInfo>();
-			foreach (var c in FootprintUtils.PathableTiles(b.Info.Name, buildingInfo, b.Location))
+			foreach (var c in buildingInfo.PathableTiles(b.Location))
 				if (bridges[c] == b)
 					bridges[c] = null;
 		}

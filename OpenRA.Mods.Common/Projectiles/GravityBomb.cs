@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,10 +10,8 @@
 #endregion
 
 using System.Collections.Generic;
-using OpenRA.Effects;
 using OpenRA.GameRules;
 using OpenRA.Graphics;
-using OpenRA.Mods.Common.Effects;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Projectiles
@@ -22,17 +20,25 @@ namespace OpenRA.Mods.Common.Projectiles
 	{
 		public readonly string Image = null;
 
+		[SequenceReference("Image")]
 		[Desc("Loop a randomly chosen sequence of Image from this list while falling.")]
-		[SequenceReference("Image")] public readonly string[] Sequences = { "idle" };
+		public readonly string[] Sequences = { "idle" };
 
+		[SequenceReference("Image")]
 		[Desc("Sequence to play when launched. Skipped if null or empty.")]
-		[SequenceReference("Image")] public readonly string OpenSequence = null;
+		public readonly string OpenSequence = null;
 
-		[PaletteReference] public readonly string Palette = "effect";
+		[PaletteReference]
+		[Desc("The palette used to draw this projectile.")]
+		public readonly string Palette = "effect";
+
+		[Desc("Palette is a player palette BaseName")]
+		public readonly bool IsPlayerPalette = false;
 
 		public readonly bool Shadow = false;
 
-		[PaletteReference] public readonly string ShadowPalette = "shadow";
+		[PaletteReference]
+		public readonly string ShadowPalette = "shadow";
 
 		[Desc("Projectile movement vector per tick (forward, right, up), use negative values for opposite directions.")]
 		public readonly WVec Velocity = WVec.Zero;
@@ -49,8 +55,10 @@ namespace OpenRA.Mods.Common.Projectiles
 		readonly Animation anim;
 		readonly ProjectileArgs args;
 		readonly WVec acceleration;
-		[Sync] WVec velocity;
-		[Sync] WPos pos;
+		WVec velocity;
+
+		[Sync]
+		WPos pos, lastPos;
 
 		public GravityBomb(GravityBombInfo info, ProjectileArgs args)
 		{
@@ -58,12 +66,12 @@ namespace OpenRA.Mods.Common.Projectiles
 			this.args = args;
 			pos = args.Source;
 			var convertedVelocity = new WVec(info.Velocity.Y, -info.Velocity.X, info.Velocity.Z);
-			velocity = convertedVelocity.Rotate(WRot.FromFacing(args.Facing));
+			velocity = convertedVelocity.Rotate(WRot.FromYaw(args.Facing));
 			acceleration = new WVec(info.Acceleration.Y, -info.Acceleration.X, info.Acceleration.Z);
 
 			if (!string.IsNullOrEmpty(info.Image))
 			{
-				anim = new Animation(args.SourceActor.World, info.Image);
+				anim = new Animation(args.SourceActor.World, info.Image, () => args.Facing);
 
 				if (!string.IsNullOrEmpty(info.OpenSequence))
 					anim.PlayThen(info.OpenSequence, () => anim.PlayRepeating(info.Sequences.Random(args.SourceActor.World.SharedRandom)));
@@ -74,6 +82,7 @@ namespace OpenRA.Mods.Common.Projectiles
 
 		public void Tick(World world)
 		{
+			lastPos = pos;
 			pos += velocity;
 			velocity += acceleration;
 
@@ -81,7 +90,14 @@ namespace OpenRA.Mods.Common.Projectiles
 			{
 				pos += new WVec(0, 0, args.PassiveTarget.Z - pos.Z);
 				world.AddFrameEndTask(w => w.Remove(this));
-				args.Weapon.Impact(Target.FromPos(pos), args.SourceActor, args.DamageModifiers);
+
+				var warheadArgs = new WarheadArgs(args)
+				{
+					ImpactOrientation = new WRot(WAngle.Zero, Util.GetVerticalAngle(lastPos, pos), args.Facing),
+					ImpactPosition = pos,
+				};
+
+				args.Weapon.Impact(Target.FromPos(pos), warheadArgs);
 			}
 
 			if (anim != null)
@@ -104,7 +120,7 @@ namespace OpenRA.Mods.Common.Projectiles
 						yield return r;
 				}
 
-				var palette = wr.Palette(info.Palette);
+				var palette = wr.Palette(info.Palette + (info.IsPlayerPalette ? args.SourceActor.Owner.InternalName : ""));
 				foreach (var r in anim.Render(pos, palette))
 					yield return r;
 			}

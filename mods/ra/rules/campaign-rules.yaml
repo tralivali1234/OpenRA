@@ -2,30 +2,36 @@ Player:
 	-ConquestVictoryConditions:
 	MissionObjectives:
 		EarlyGameOver: true
+		GameOverDelay: 3000
 	Shroud:
-		FogLocked: True
-		FogEnabled: True
-		ExploredMapLocked: True
-		ExploredMapEnabled: False
+		FogCheckboxLocked: True
+		FogCheckboxEnabled: True
+		ExploredMapCheckboxLocked: True
+		ExploredMapCheckboxEnabled: False
 	PlayerResources:
-		DefaultCashLocked: True
+		DefaultCashDropdownLocked: True
 		DefaultCash: 0
+	ModularBot@CampaignAI:
+		Name: Campaign Player AI
+		Type: campaign
 
 World:
 	CrateSpawner:
-		Enabled: False
-		Locked: True
+		CheckboxEnabled: False
+		CheckboxLocked: True
 	-SpawnMPUnits:
 	-MPStartLocations:
 	ObjectivesPanel:
 		PanelName: MISSION_OBJECTIVES
 	MapBuildRadius:
-		AllyBuildRadiusLocked: True
-		AllyBuildRadiusEnabled: False
+		AllyBuildRadiusCheckboxLocked: True
+		AllyBuildRadiusCheckboxEnabled: False
+		BuildRadiusCheckboxLocked: True
+		BuildRadiusCheckboxEnabled: True
 	MapOptions:
-		TechLevelLocked: True
-		ShortGameLocked: True
-		ShortGameEnabled: False
+		TechLevelDropdownLocked: True
+		ShortGameCheckboxLocked: True
+		ShortGameCheckboxEnabled: False
 
 E7:
 	-Crushable:
@@ -33,8 +39,55 @@ E7:
 E7.noautotarget:
 	Inherits: E7
 	-AutoTarget:
+	-AutoTargetPriority@DEFAULT:
+	-AutoTargetPriority@ATTACKANYTHING:
+	AttackMove:
+		-AssaultMoveCondition:
 	RenderSprites:
 		Image: E7
 
 ^Vehicle:
 	Demolishable:
+
+HARV:
+	Harvester:
+		SearchFromProcRadius: 50
+		SearchFromHarvesterRadius: 50
+
+MONEYCRATE:
+	Tooltip:
+		Name: Crate
+	GiveCashCrateAction:
+		Amount: 2000
+	RenderSprites:
+		Image: scrate
+
+FCOM:
+	Capturable:
+		Types: ~disabled
+	-GivesBuildableArea:
+	BaseProvider:
+		Range: 0
+	RepairableBuilding:
+		RepairStep: 700
+		PlayerExperience: 25
+		RepairingNotification: Repairing
+	WithBuildingRepairDecoration:
+		Image: allyrepair
+		Sequence: repair
+		Position: Center
+		Palette: player
+		IsPlayerPalette: True
+
+MISS:
+	RevealsShroud:
+		Range: 3c0
+	-RevealsShroud@GAPGEN:
+
+Ant:
+	Buildable:
+		Prerequisites: ~disabled
+
+Zombie:
+	Buildable:
+		Prerequisites: ~disabled

@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -9,7 +9,6 @@
  */
 #endregion
 
-using System;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
@@ -40,7 +39,6 @@ namespace OpenRA.Mods.Common.Traits
 		int countdown;
 		int ticksIdle;
 		int effectiveMoveRadius;
-		bool firstTick = true;
 
 		public Wanders(Actor self, WandersInfo info)
 			: base(info)
@@ -48,6 +46,7 @@ namespace OpenRA.Mods.Common.Traits
 			this.self = self;
 			this.info = info;
 			effectiveMoveRadius = info.WanderMoveRadius;
+			countdown = self.World.SharedRandom.Next(info.MinMoveDelay, info.MaxMoveDelay);
 		}
 
 		protected override void Created(Actor self)
@@ -57,23 +56,20 @@ namespace OpenRA.Mods.Common.Traits
 			base.Created(self);
 		}
 
-		public virtual void OnBecomingIdle(Actor self)
+		protected virtual void OnBecomingIdle(Actor self)
 		{
 			countdown = self.World.SharedRandom.Next(info.MinMoveDelay, info.MaxMoveDelay);
 		}
 
-		public virtual void TickIdle(Actor self)
+		void INotifyBecomingIdle.OnBecomingIdle(Actor self)
+		{
+			OnBecomingIdle(self);
+		}
+
+		protected virtual void TickIdle(Actor self)
 		{
 			if (IsTraitDisabled)
 				return;
-
-			// OnBecomingIdle has not been called yet at this point, so set the initial countdown here
-			if (firstTick)
-			{
-				countdown = self.World.SharedRandom.Next(info.MinMoveDelay, info.MaxMoveDelay);
-				firstTick = false;
-				return;
-			}
 
 			if (--countdown > 0)
 				return;
@@ -81,6 +77,11 @@ namespace OpenRA.Mods.Common.Traits
 			var targetCell = PickTargetLocation();
 			if (targetCell != CPos.Zero)
 				DoAction(self, targetCell);
+		}
+
+		void INotifyIdle.TickIdle(Actor self)
+		{
+			TickIdle(self);
 		}
 
 		CPos PickTargetLocation()
@@ -105,7 +106,7 @@ namespace OpenRA.Mods.Common.Traits
 
 		public virtual void DoAction(Actor self, CPos targetCell)
 		{
-			move.ResolveOrder(self, new Order("Move", self, false) { TargetLocation = targetCell });
+			move.ResolveOrder(self, new Order("Move", self, Target.FromCell(self.World, targetCell), false));
 		}
 	}
 }

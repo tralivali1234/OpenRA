@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -9,9 +9,9 @@
  */
 #endregion
 
-using System.Drawing;
 using System.IO;
 using OpenRA.Graphics;
+using OpenRA.Primitives;
 
 namespace OpenRA.Mods.Cnc.SpriteLoaders
 {
@@ -21,6 +21,7 @@ namespace OpenRA.Mods.Cnc.SpriteLoaders
 		{
 			readonly TmpTSFrame parent;
 
+			public SpriteFrameType Type { get { return SpriteFrameType.Indexed; } }
 			public Size Size { get { return parent.Size; } }
 			public Size FrameSize { get { return Size; } }
 			public float2 Offset { get { return parent.Offset; } }
@@ -35,6 +36,7 @@ namespace OpenRA.Mods.Cnc.SpriteLoaders
 
 		class TmpTSFrame : ISpriteFrame
 		{
+			public SpriteFrameType Type { get { return SpriteFrameType.Indexed; } }
 			public Size Size { get; private set; }
 			public Size FrameSize { get { return Size; } }
 			public float2 Offset { get; private set; }
@@ -182,8 +184,9 @@ namespace OpenRA.Mods.Cnc.SpriteLoaders
 			return tiles;
 		}
 
-		public bool TryParseSprite(Stream s, out ISpriteFrame[] frames)
+		public bool TryParseSprite(Stream s, out ISpriteFrame[] frames, out TypeDictionary metadata)
 		{
+			metadata = null;
 			if (!IsTmpTS(s))
 			{
 				frames = null;

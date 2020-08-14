@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -21,9 +21,12 @@ namespace OpenRA.Platforms.Default
 		public const int VertexPosAttributeIndex = 0;
 		public const int TexCoordAttributeIndex = 1;
 		public const int TexMetadataAttributeIndex = 2;
+		public const int TintAttributeIndex = 3;
 
 		readonly Dictionary<string, int> samplers = new Dictionary<string, int>();
+		readonly Dictionary<int, int> legacySizeUniforms = new Dictionary<int, int>();
 		readonly Dictionary<int, ITexture> textures = new Dictionary<int, ITexture>();
+		readonly Queue<int> unbindTextures = new Queue<int>();
 		readonly uint program;
 
 		protected uint CompileShaderObject(int type, string name)
@@ -31,6 +34,11 @@ namespace OpenRA.Platforms.Default
 			var ext = type == OpenGL.GL_VERTEX_SHADER ? "vert" : "frag";
 			var filename = Path.Combine(Platform.GameDir, "glsl", name + "." + ext);
 			var code = File.ReadAllText(filename);
+
+			var version = OpenGL.Profile == GLProfile.Embedded ? "300 es" :
+				OpenGL.Profile == GLProfile.Legacy ? "120" : "140";
+
+			code = code.Replace("{VERSION}", version);
 
 			var shader = OpenGL.glCreateShader(type);
 			OpenGL.CheckGLError();
@@ -76,6 +84,15 @@ namespace OpenRA.Platforms.Default
 			OpenGL.CheckGLError();
 			OpenGL.glBindAttribLocation(program, TexMetadataAttributeIndex, "aVertexTexMetadata");
 			OpenGL.CheckGLError();
+			OpenGL.glBindAttribLocation(program, TintAttributeIndex, "aVertexTint");
+			OpenGL.CheckGLError();
+
+			if (OpenGL.Profile != GLProfile.Legacy)
+			{
+				OpenGL.glBindFragDataLocation(program, 0, "fragColor");
+				OpenGL.CheckGLError();
+			}
+
 			OpenGL.glAttachShader(program, vertexShader);
 			OpenGL.CheckGLError();
 			OpenGL.glAttachShader(program, fragmentShader);
@@ -125,25 +142,50 @@ namespace OpenRA.Platforms.Default
 					OpenGL.glUniform1i(loc, nextTexUnit);
 					OpenGL.CheckGLError();
 
+					if (OpenGL.Profile == GLProfile.Legacy)
+					{
+						var sizeLoc = OpenGL.glGetUniformLocation(program, sampler + "Size");
+						if (sizeLoc >= 0)
+							legacySizeUniforms.Add(nextTexUnit, sizeLoc);
+					}
+
 					nextTexUnit++;
 				}
 			}
 		}
 
-		public void Render(Action a)
+		public void PrepareRender()
 		{
 			VerifyThreadAffinity();
 			OpenGL.glUseProgram(program);
+			OpenGL.CheckGLError();
 
 			// bind the textures
 			foreach (var kv in textures)
 			{
-				OpenGL.glActiveTexture(OpenGL.GL_TEXTURE0 + kv.Key);
-				OpenGL.glBindTexture(OpenGL.GL_TEXTURE_2D, ((Texture)kv.Value).ID);
+				var texture = (ITextureInternal)kv.Value;
+
+				// Evict disposed textures from the cache
+				if (OpenGL.glIsTexture(texture.ID))
+				{
+					OpenGL.glActiveTexture(OpenGL.GL_TEXTURE0 + kv.Key);
+					OpenGL.glBindTexture(OpenGL.GL_TEXTURE_2D, texture.ID);
+
+					// Work around missing textureSize GLSL function by explicitly tracking sizes in a uniform
+					int param;
+					if (OpenGL.Profile == GLProfile.Legacy && legacySizeUniforms.TryGetValue(kv.Key, out param))
+					{
+						OpenGL.glUniform2f(param, texture.Size.Width, texture.Size.Height);
+						OpenGL.CheckGLError();
+					}
+				}
+				else
+					unbindTextures.Enqueue(kv.Key);
 			}
 
-			OpenGL.CheckGLError();
-			a();
+			while (unbindTextures.Count > 0)
+				textures.Remove(unbindTextures.Dequeue());
+
 			OpenGL.CheckGLError();
 		}
 

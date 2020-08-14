@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -15,14 +15,16 @@ using OpenRA.Traits;
 namespace OpenRA.Mods.Common.Traits.Render
 {
 	[Desc("Rendered together with an attack.")]
-	public class WithAttackOverlayInfo : ITraitInfo, Requires<RenderSpritesInfo>
+	public class WithAttackOverlayInfo : TraitInfo, Requires<RenderSpritesInfo>
 	{
+		[SequenceReference]
 		[FieldLoader.Require]
 		[Desc("Sequence name to use")]
-		[SequenceReference] public readonly string Sequence = null;
+		public readonly string Sequence = null;
 
+		[PaletteReference("IsPlayerPalette")]
 		[Desc("Custom palette name")]
-		[PaletteReference("IsPlayerPalette")] public readonly string Palette = null;
+		public readonly string Palette = null;
 
 		[Desc("Custom palette is a player palette BaseName")]
 		public readonly bool IsPlayerPalette = false;
@@ -33,7 +35,7 @@ namespace OpenRA.Mods.Common.Traits.Render
 		[Desc("Should the overlay be delayed relative to preparation or actual attack?")]
 		public readonly AttackDelayType DelayRelativeTo = AttackDelayType.Preparation;
 
-		public object Create(ActorInitializer init) { return new WithAttackOverlay(init, this); }
+		public override object Create(ActorInitializer init) { return new WithAttackOverlay(init, this); }
 	}
 
 	public class WithAttackOverlay : INotifyAttack, ITick

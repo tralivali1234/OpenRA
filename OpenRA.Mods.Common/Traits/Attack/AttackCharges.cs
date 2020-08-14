@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -9,8 +9,6 @@
  */
 #endregion
 
-using System.Collections.Generic;
-using System.Linq;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
@@ -34,11 +32,10 @@ namespace OpenRA.Mods.Common.Traits
 		public override object Create(ActorInitializer init) { return new AttackCharges(init.Self, this); }
 	}
 
-	public class AttackCharges : AttackOmni, INotifyCreated, ITick, INotifyAttack, INotifySold
+	public class AttackCharges : AttackOmni, INotifyAttack, INotifySold
 	{
 		readonly AttackChargesInfo info;
-		ConditionManager conditionManager;
-		int chargingToken = ConditionManager.InvalidConditionToken;
+		int chargingToken = Actor.InvalidConditionToken;
 		bool charging;
 
 		public int ChargeLevel { get; private set; }
@@ -49,12 +46,7 @@ namespace OpenRA.Mods.Common.Traits
 			this.info = info;
 		}
 
-		void INotifyCreated.Created(Actor self)
-		{
-			conditionManager = self.TraitOrDefault<ConditionManager>();
-		}
-
-		void ITick.Tick(Actor self)
+		protected override void Tick(Actor self)
 		{
 			// Stop charging when we lose our target
 			charging &= self.CurrentActivity is SetTarget;
@@ -62,12 +54,13 @@ namespace OpenRA.Mods.Common.Traits
 			var delta = charging ? info.ChargeRate : -info.DischargeRate;
 			ChargeLevel = (ChargeLevel + delta).Clamp(0, info.ChargeLevel);
 
-			if (ChargeLevel > 0 && conditionManager != null && !string.IsNullOrEmpty(info.ChargingCondition)
-					&& chargingToken == ConditionManager.InvalidConditionToken)
-				chargingToken = conditionManager.GrantCondition(self, info.ChargingCondition);
+			if (ChargeLevel > 0 && chargingToken == Actor.InvalidConditionToken)
+				chargingToken = self.GrantCondition(info.ChargingCondition);
 
-			if (ChargeLevel == 0 && conditionManager != null && chargingToken != ConditionManager.InvalidConditionToken)
-				chargingToken = conditionManager.RevokeCondition(self, chargingToken);
+			if (ChargeLevel == 0 && chargingToken != Actor.InvalidConditionToken)
+				chargingToken = self.RevokeCondition(chargingToken);
+
+			base.Tick(self);
 		}
 
 		protected override bool CanAttack(Actor self, Target target)

@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -15,7 +15,6 @@ using System.ComponentModel;
 using System.IO;
 using System.Net;
 using System.Text;
-using ICSharpCode.SharpZipLib;
 using ICSharpCode.SharpZipLib.Zip;
 using OpenRA.Support;
 using OpenRA.Widgets;
@@ -83,9 +82,14 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 
 				if (i.TotalBytesToReceive < 0)
 				{
-					dataTotal = float.NaN;
-					dataReceived = i.BytesReceived;
-					dataSuffix = SizeSuffixes[0];
+					mag = (int)Math.Log(i.BytesReceived, 1024);
+					dataReceived = i.BytesReceived / (float)(1L << (mag * 10));
+					dataSuffix = SizeSuffixes[mag];
+
+					getStatusText = () => "Downloading from {2} {0:0.00} {1}".F(dataReceived,
+						dataSuffix,
+						downloadHost ?? "unknown host");
+					progressBar.Indeterminate = true;
 				}
 				else
 				{
@@ -93,14 +97,14 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 					dataTotal = i.TotalBytesToReceive / (float)(1L << (mag * 10));
 					dataReceived = i.BytesReceived / (float)(1L << (mag * 10));
 					dataSuffix = SizeSuffixes[mag];
+
+					getStatusText = () => "Downloading from {4} {1:0.00}/{2:0.00} {3} ({0}%)".F(i.ProgressPercentage,
+						dataReceived, dataTotal, dataSuffix,
+						downloadHost ?? "unknown host");
+					progressBar.Indeterminate = false;
 				}
 
-				progressBar.Indeterminate = false;
 				progressBar.Percentage = i.ProgressPercentage;
-
-				getStatusText = () => "Downloading from {4} {1:0.00}/{2:0.00} {3} ({0}%)".F(i.ProgressPercentage,
-					dataReceived, dataTotal, dataSuffix,
-					downloadHost ?? "unknown host");
 			};
 
 			Action<string> onExtractProgress = s => Game.RunAfterTick(() => getStatusText = () => s);
@@ -130,6 +134,37 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 					deleteTempFile();
 					onError(Download.FormatErrorMessage(i.Error));
 					return;
+				}
+
+				// Validate integrity
+				if (!string.IsNullOrEmpty(download.SHA1))
+				{
+					getStatusText = () => "Verifying archive...";
+					progressBar.Indeterminate = true;
+
+					var archiveValid = false;
+					try
+					{
+						using (var stream = File.OpenRead(file))
+						{
+							var archiveSHA1 = CryptoUtil.SHA1Hash(stream);
+							Log.Write("install", "Downloaded SHA1: " + archiveSHA1);
+							Log.Write("install", "Expected SHA1: " + download.SHA1);
+
+							archiveValid = archiveSHA1 == download.SHA1;
+						}
+					}
+					catch (Exception e)
+					{
+						Log.Write("install", "SHA1 calculation failed: " + e.ToString());
+					}
+
+					if (!archiveValid)
+					{
+						onError("Archive validation failed");
+						deleteTempFile();
+						return;
+					}
 				}
 
 				// Automatically extract

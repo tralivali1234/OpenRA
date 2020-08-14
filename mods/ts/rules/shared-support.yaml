@@ -1,6 +1,7 @@
 NAPULS:
 	Inherits: ^Defense
-	Inherits@IDISABLE: ^DisabledOverlay
+	Inherits@IDISABLE: ^DisableOnLowPowerOrPowerDown
+	Inherits@SHAPE: ^2x2Shape
 	Valued:
 		Cost: 1000
 	Tooltip:
@@ -13,30 +14,26 @@ NAPULS:
 	Building:
 		Footprint: xx xx
 		Dimensions: 2,2
-	Selectable:
-		Bounds: 78, 54, 0, -12
-	RequiresPower:
 	Health:
-		HP: 500
+		HP: 50000
 	Armor:
 		Type: Heavy
 	RevealsShroud:
 		Range: 8c0
-	-AutoTarget:
 	Turreted:
-		TurnSpeed: 10
-		InitialFacing: 224
+		TurnSpeed: 40
+		InitialFacing: 896
 	AttackTurreted:
+		RequiresCondition: !build-incomplete && !empdisable && !disabled
 	Armament:
 		Weapon: EMPulseCannon
 		LocalOffset: 212,0,1768
 		LocalYaw: 0,100
 	WithSpriteTurret:
+		RequiresCondition: !build-incomplete
 		Sequence: turret
 	Power:
 		Amount: -150
-	SelectionDecorations:
-		VisualBounds: 78, 54, 0, -12
 	RenderSprites:
 		Image: napuls.gdi
 		FactionImages:
@@ -48,7 +45,7 @@ NAPULS:
 		PauseOnCondition: empdisable || disabled
 		Cursor: emp
 		Icon: emp
-		ChargeTime: 135
+		ChargeInterval: 3375
 		Description: E.M. Pulse
 		LongDesc: Fires a pulse blast which disables\nall mechanical units in the area.
 		EndChargeSpeechNotification: EmPulseCannonReady

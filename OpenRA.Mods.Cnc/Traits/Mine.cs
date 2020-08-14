@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -9,20 +9,20 @@
  */
 #endregion
 
-using System.Collections.Generic;
 using OpenRA.Mods.Common.Traits;
+using OpenRA.Primitives;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Cnc.Traits
 {
-	class MineInfo : ITraitInfo
+	class MineInfo : TraitInfo
 	{
-		public readonly HashSet<string> CrushClasses = new HashSet<string>();
+		public readonly BitSet<CrushClass> CrushClasses = default(BitSet<CrushClass>);
 		public readonly bool AvoidFriendly = true;
 		public readonly bool BlockFriendly = true;
-		public readonly HashSet<string> DetonateClasses = new HashSet<string>();
+		public readonly BitSet<CrushClass> DetonateClasses = default(BitSet<CrushClass>);
 
-		public object Create(ActorInitializer init) { return new Mine(this); }
+		public override object Create(ActorInitializer init) { return new Mine(this); }
 	}
 
 	class Mine : ICrushable, INotifyCrushed
@@ -34,9 +34,9 @@ namespace OpenRA.Mods.Cnc.Traits
 			this.info = info;
 		}
 
-		void INotifyCrushed.WarnCrush(Actor self, Actor crusher, HashSet<string> crushClasses) { }
+		void INotifyCrushed.WarnCrush(Actor self, Actor crusher, BitSet<CrushClass> crushClasses) { }
 
-		void INotifyCrushed.OnCrush(Actor self, Actor crusher, HashSet<string> crushClasses)
+		void INotifyCrushed.OnCrush(Actor self, Actor crusher, BitSet<CrushClass> crushClasses)
 		{
 			if (!info.CrushClasses.Overlaps(crushClasses))
 				return;
@@ -45,18 +45,27 @@ namespace OpenRA.Mods.Cnc.Traits
 				return;
 
 			var mobile = crusher.TraitOrDefault<Mobile>();
-			if (mobile != null && !info.DetonateClasses.Overlaps(mobile.Info.Crushes))
+			if (mobile != null && !info.DetonateClasses.Overlaps(mobile.Info.LocomotorInfo.Crushes))
 				return;
 
-			self.Kill(crusher);
+			self.Kill(crusher, mobile != null ? mobile.Info.LocomotorInfo.CrushDamageTypes : default(BitSet<DamageType>));
 		}
 
-		bool ICrushable.CrushableBy(Actor self, Actor crusher, HashSet<string> crushClasses)
+		bool ICrushable.CrushableBy(Actor self, Actor crusher, BitSet<CrushClass> crushClasses)
 		{
 			if (info.BlockFriendly && !crusher.Info.HasTraitInfo<MineImmuneInfo>() && self.Owner.Stances[crusher.Owner] == Stance.Ally)
 				return false;
 
 			return info.CrushClasses.Overlaps(crushClasses);
+		}
+
+		LongBitSet<PlayerBitMask> ICrushable.CrushableBy(Actor self, BitSet<CrushClass> crushClasses)
+		{
+			if (!info.CrushClasses.Overlaps(crushClasses))
+				return self.World.NoPlayersMask;
+
+			// Friendly units should move around!
+			return info.BlockFriendly ? self.Owner.EnemyPlayersMask : self.World.AllPlayersMask;
 		}
 	}
 

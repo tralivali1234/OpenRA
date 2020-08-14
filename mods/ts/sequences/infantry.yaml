@@ -50,6 +50,7 @@
 		Facings: 8
 		ShadowStart: 552
 	die-melting: electro
+		Frames: 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 		Length: *
 
 ^BasicInfantryAttack:
@@ -159,10 +160,8 @@ civ1:
 		Facings: 8
 		ShadowStart: 378
 	panic-stand:
-		Start: 86
 		Facings: 8
-		Stride: 6
-		ShadowStart: 378
+		ShadowStart: 292
 
 civ2:
 	Inherits: ^BasicInfantry
@@ -172,10 +171,8 @@ civ2:
 		Facings: 8
 		ShadowStart: 378
 	panic-stand:
-		Start: 86
 		Facings: 8
-		Stride: 6
-		ShadowStart: 378
+		ShadowStart: 292
 
 civ3:
 	Inherits: civ1
@@ -328,6 +325,7 @@ medic:
 		Length: 14
 		ShadowStart: 599
 	die-melting: electro
+		Frames: 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 		Length: *
 	icon: mediicon
 
@@ -405,6 +403,7 @@ jumpjet:
 		Facings: 8
 		ShadowStart: 711
 	die-melting: electro
+		Frames: 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 		Length: *
 	icon: jjeticon
 
@@ -469,6 +468,7 @@ weedguy:
 		Length: 20
 		ShadowStart: 379
 	die-melting: electro
+		Frames: 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 		Length: *
 	die-crushed:
 		Start: 174

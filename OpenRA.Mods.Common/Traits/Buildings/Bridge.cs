@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -20,7 +20,7 @@ using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
 {
-	class BridgeInfo : ITraitInfo, IRulesetLoaded, Requires<HealthInfo>, Requires<BuildingInfo>
+	class BridgeInfo : TraitInfo, IRulesetLoaded, Requires<HealthInfo>, Requires<BuildingInfo>
 	{
 		public readonly bool Long = false;
 
@@ -40,14 +40,29 @@ namespace OpenRA.Mods.Common.Traits
 		public readonly int[] NorthOffset = null;
 		public readonly int[] SouthOffset = null;
 
+		[WeaponReference]
 		[Desc("The name of the weapon to use when demolishing the bridge")]
-		[WeaponReference] public readonly string DemolishWeapon = "Demolish";
+		public readonly string DemolishWeapon = "Demolish";
 
 		public WeaponInfo DemolishWeaponInfo { get; private set; }
 
-		public object Create(ActorInitializer init) { return new Bridge(init.Self, this); }
+		[Desc("Types of damage that this bridge causes to units over/in path of it while being destroyed/repaired. Leave empty for no damage types.")]
+		public readonly BitSet<DamageType> DamageTypes = default(BitSet<DamageType>);
 
-		public void RulesetLoaded(Ruleset rules, ActorInfo ai) { DemolishWeaponInfo = rules.Weapons[DemolishWeapon.ToLowerInvariant()]; }
+		public override object Create(ActorInitializer init) { return new Bridge(init.Self, this); }
+
+		public void RulesetLoaded(Ruleset rules, ActorInfo ai)
+		{
+			if (string.IsNullOrEmpty(DemolishWeapon))
+				throw new YamlException("A value for DemolishWeapon of a Bridge trait is missing.");
+
+			WeaponInfo weapon;
+			var weaponToLower = DemolishWeapon.ToLowerInvariant();
+			if (!rules.Weapons.TryGetValue(weaponToLower, out weapon))
+				throw new YamlException("Weapons Ruleset does not contain an entry '{0}'".F(weaponToLower));
+
+			DemolishWeaponInfo = weapon;
+		}
 
 		public IEnumerable<Pair<ushort, int>> Templates
 		{
@@ -76,7 +91,7 @@ namespace OpenRA.Mods.Common.Traits
 
 	class Bridge : IRender, INotifyDamageStateChanged
 	{
-		readonly BuildingInfo building;
+		readonly BuildingInfo buildingInfo;
 		readonly Bridge[] neighbours = new Bridge[2];
 		readonly LegacyBridgeHut[] huts = new LegacyBridgeHut[2]; // Huts before this / first & after this / last
 		readonly Health health;
@@ -99,7 +114,7 @@ namespace OpenRA.Mods.Common.Traits
 			this.info = info;
 			type = self.Info.Name;
 			isDangling = new Lazy<bool>(() => huts[0] == huts[1] && (neighbours[0] == null || neighbours[1] == null));
-			building = self.Info.TraitInfo<BuildingInfo>();
+			buildingInfo = self.Info.TraitInfo<BuildingInfo>();
 		}
 
 		public Bridge Neighbour(int direction) { return neighbours[direction]; }
@@ -181,11 +196,11 @@ namespace OpenRA.Mods.Common.Traits
 
 		IRenderable[] TemplateRenderables(WorldRenderer wr, PaletteReference palette, ushort template)
 		{
-			var offset = FootprintUtils.CenterOffset(self.World, building).Y + 1024;
+			var offset = buildingInfo.CenterOffset(self.World).Y + 1024;
 
 			return footprint.Select(c => (IRenderable)(new SpriteRenderable(
 				wr.Theater.TileSprite(new TerrainTile(template, c.Value)),
-				wr.World.Map.CenterOfCell(c.Key), WVec.Zero, -offset, palette, 1f, true))).ToArray();
+				wr.World.Map.CenterOfCell(c.Key), WVec.Zero, -offset, palette, 1f, true, false))).ToArray();
 		}
 
 		bool initialized;
@@ -205,12 +220,31 @@ namespace OpenRA.Mods.Common.Traits
 			return renderables[template];
 		}
 
+		public IEnumerable<Rectangle> ScreenBounds(Actor self, WorldRenderer wr)
+		{
+			foreach (var kv in footprint)
+			{
+				var xy = wr.ScreenPxPosition(wr.World.Map.CenterOfCell(kv.Key));
+				var size = wr.Theater.TileSprite(new TerrainTile(template, kv.Value)).Bounds.Size;
+
+				// Add an extra pixel padding to avoid issues with odd-sized sprites
+				var halfWidth = size.Width / 2 + 1;
+				var halfHeight = size.Height / 2 + 1;
+
+				yield return Rectangle.FromLTRB(
+					xy.X - halfWidth,
+					xy.Y - halfHeight,
+					xy.X + halfWidth,
+					xy.Y + halfHeight);
+			}
+		}
+
 		void KillUnitsOnBridge()
 		{
 			foreach (var c in footprint.Keys)
 				foreach (var a in self.World.ActorMap.GetActorsAt(c))
-					if (a.Info.HasTraitInfo<IPositionableInfo>() && !a.Trait<IPositionable>().CanEnterCell(c))
-						a.Kill(self);
+					if (a.Info.HasTraitInfo<IPositionableInfo>() && !a.Trait<IPositionable>().CanExistInCell(c))
+						a.Kill(self, info.DamageTypes);
 		}
 
 		bool NeighbourIsDeadShore(Bridge neighbour)
@@ -342,9 +376,8 @@ namespace OpenRA.Mods.Common.Traits
 			self.World.AddFrameEndTask(w =>
 			{
 				// Use .FromPos since this actor is killed. Cannot use Target.FromActor
-				info.DemolishWeaponInfo.Impact(Target.FromPos(self.CenterPosition), saboteur, Enumerable.Empty<int>());
+				info.DemolishWeaponInfo.Impact(Target.FromPos(self.CenterPosition), saboteur);
 
-				self.World.WorldActor.Trait<ScreenShaker>().AddEffect(15, self.CenterPosition, 6);
 				self.Kill(saboteur);
 			});
 

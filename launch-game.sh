@@ -1,11 +1,15 @@
 #!/bin/sh
-MODLAUNCHER=$(python -c "import os; print(os.path.realpath('$0'))")
+if command -v python3 >/dev/null 2>&1; then
+	 MODLAUNCHER=$(python3 -c "import os; print(os.path.realpath('$0'))")
+else
+	 MODLAUNCHER=$(python -c "import os; print(os.path.realpath('$0'))")
+fi
 
 # Prompt for a mod to launch if one is not already specified
 MODARG=''
 if [ z"${*#*Game.Mod}" = z"$*" ]
 then
-	if which zenity > /dev/null
+	if command -v zenity > /dev/null
 	then
 		TITLE=$(zenity --forms --add-combo="" --combo-values="Red Alert|Tiberian Dawn|Dune 2000|Tiberian Sun" --text "Select mod" --title="" || echo "cancel")
 		if [ "$TITLE" = "cancel" ]; then exit 0
@@ -23,14 +27,25 @@ fi
 # Launch the engine with the appropriate arguments
 mono OpenRA.Game.exe Engine.LaunchPath="$MODLAUNCHER" $MODARG "$@"
 
-# Show a crash dialog if required
-if [ $? != 0 ] && [ $? != 1 ]
-then
-	if which zenity > /dev/null
-	then
-		zenity --question --title "OpenRA" --text "OpenRA has encountered a fatal error.\nLog Files are available in ~/.openra." --ok-label "Quit" --cancel-label "View FAQ" || xdg-open https://github.com/OpenRA/OpenRA/wiki/FAQ
+# Show a crash dialog if something went wrong
+if [ $? != 0 ] && [ $? != 1 ]; then
+	if [ "$(uname -s)" = "Darwin" ]; then
+		LOGS="${HOME}/Library/Application Support/OpenRA/Logs/"
 	else
-		printf "OpenRA has encountered a fatal error.\n  -> Log Files are available in ~/.openra\n  -> FAQ is available at https://github.com/OpenRA/OpenRA/wiki/FAQ\n"
+		LOGS="${XDG_CONFIG_HOME:-${HOME}/.config}/openra/Logs"
+		if [ ! -d "${LOGS}" ] && [ -d "${HOME}/.openra/Logs" ]; then
+			LOGS="${HOME}/.openra/Logs"
+		fi
+	fi
+
+	test -d Support/Logs && LOGS="${PWD}/Support/Logs"
+	ERROR_MESSAGE="OpenRA has encountered a fatal error.\nPlease refer to the crash logs and FAQ for more information.\n\nLog files are located in ${LOGS}\nThe FAQ is available at http://wiki.openra.net/FAQ"
+	if command -v zenity > /dev/null; then
+		zenity --no-wrap --error --title "OpenRA" --text "${ERROR_MESSAGE}" 2> /dev/null
+	elif command -v kdialog > /dev/null; then
+		kdialog --title "OpenRA" --error "${ERROR_MESSAGE}"
+	else
+		echo "${ERROR_MESSAGE}"
 	fi
 	exit 1
 fi

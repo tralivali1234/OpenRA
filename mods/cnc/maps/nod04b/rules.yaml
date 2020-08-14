@@ -1,6 +1,6 @@
 World:
 	LuaScript:
-		Scripts: nod04b.lua
+		Scripts: campaign-global.lua, nod04b.lua
 	MusicPlaylist:
 		StartingMusic: warfare
 		VictoryMusic: nod_win1
@@ -25,3 +25,4 @@ TRAN:
 	-Selectable:
 	RevealsShroud:
 		Range: 5c0
+	Interactable:

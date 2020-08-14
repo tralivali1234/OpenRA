@@ -1,6 +1,6 @@
-﻿#region Copyright & License Information
+#region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -9,9 +9,8 @@
  */
 #endregion
 
-using System;
 using OpenRA.Mods.Common.Effects;
-using OpenRA.Traits;
+using OpenRA.Primitives;
 
 namespace OpenRA.Mods.Common.Traits
 {
@@ -27,6 +26,9 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Amount of money awarded for capturing the actor.")]
 		public readonly int Amount = 0;
 
+		[Desc("Award cash only if the capturer's CaptureTypes overlap with these types. Leave empty to allow all types.")]
+		public readonly BitSet<CaptureType> CaptureTypes = default(BitSet<CaptureType>);
+
 		public override object Create(ActorInitializer init) { return new GivesCashOnCapture(this); }
 	}
 
@@ -40,31 +42,21 @@ namespace OpenRA.Mods.Common.Traits
 			this.info = info;
 		}
 
-		void INotifyCapture.OnCapture(Actor self, Actor captor, Player oldOwner, Player newOwner)
+		void INotifyCapture.OnCapture(Actor self, Actor captor, Player oldOwner, Player newOwner, BitSet<CaptureType> captureTypes)
 		{
 			if (IsTraitDisabled)
 				return;
 
+			if (!info.CaptureTypes.IsEmpty && !info.CaptureTypes.Overlaps(captureTypes))
+				return;
+
 			var resources = newOwner.PlayerActor.Trait<PlayerResources>();
-			var amount = info.Amount;
-
-			if (amount < 0)
-			{
-				// Check whether the amount of cash to be removed would exceed available player cash, in that case only remove all the player cash
-				amount = Math.Min(resources.Cash + resources.Resources, -amount);
-				resources.TakeCash(amount);
-
-				// For correct cash tick display
-				amount = -amount;
-			}
-			else
-				resources.GiveCash(amount);
-
-			if (!info.ShowTicks)
+			var amount = resources.ChangeCash(info.Amount);
+			if (!info.ShowTicks && amount != 0)
 				return;
 
 			self.World.AddFrameEndTask(w => w.Add(
-				new FloatingText(self.CenterPosition, self.Owner.Color.RGB, FloatingText.FormatCashTick(amount), info.DisplayDuration)));
+				new FloatingText(self.CenterPosition, self.Owner.Color, FloatingText.FormatCashTick(amount), info.DisplayDuration)));
 		}
 	}
 }

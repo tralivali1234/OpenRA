@@ -1,5 +1,6 @@
 GACNST:
 	Inherits: ^Building
+	Inherits@SHAPE: ^3x3Shape
 	Building:
 		Footprint: xxx xxx xxx
 		BuildSounds: facbld1.aud
@@ -10,7 +11,7 @@ GACNST:
 		Prerequisites: ~disabled
 		Description: Builds base structures.
 	Health:
-		HP: 1500
+		HP: 150000
 	Armor:
 		Type: Wood
 	RevealsShroud:
@@ -18,6 +19,7 @@ GACNST:
 		MaxHeightDelta: 3
 	Production:
 		Produces: Building,Defense
+		PauseOnCondition: empdisable
 	Valued:
 		Cost: 2500
 	Tooltip:
@@ -26,95 +28,135 @@ GACNST:
 		Value: 2500
 	BaseBuilding:
 	Transforms:
+		RequiresCondition: factundeploy
+		PauseOnCondition: empdisable || being-demolished || build-incomplete
 		IntoActor: mcv
 		Offset: 1,1
-		Facing: 96
+		Facing: 384
 		DeployCursor: undeploy
+	TransformsIntoMobile:
+		RequiresCondition: factundeploy
+		Locomotor: tracked
+		Voice: Move
+		RequiresForceMove: true
+	TransformsIntoRepairable:
+		RequiresCondition: factundeploy
+		RepairActors: gadept
+		Voice: Move
+		RequiresForceMove: true
+	TransformsIntoEntersTunnels:
+		RequiresCondition: factundeploy
+		Voice: Move
+		RequiresForceMove: true
+	TransformsIntoPassenger:
+		RequiresCondition: factundeploy
+		CargoType: Vehicle
+		Voice: Move
+		RequiresForceMove: true
+	TransformsIntoTransforms:
+		RequiresCondition: factundeploy && build-incomplete
+	GrantConditionOnPrerequisite@GLOBALFACTUNDEPLOY:
+		Condition: factundeploy
+		Prerequisites: global-factundeploy
 	ProductionBar@Building:
 		ProductionType: Building
 	ProductionBar@Defense:
 		ProductionType: Defense
 	WithIdleOverlay@TOP:
+		RequiresCondition: !build-incomplete
 		Sequence: idle-top
 	WithIdleOverlay@SIDE:
+		RequiresCondition: !build-incomplete
 		Sequence: idle-side
 	WithIdleOverlay@FRONT:
+		RequiresCondition: !build-incomplete
 		Sequence: idle-front
 	WithBuildingPlacedOverlay:
+		RequiresCondition: !build-incomplete
 	Power:
 		Amount: 0
-	Selectable:
-		Bounds: 144, 60, 0, -6
 	ProvidesPrerequisite@gdi:
 		Factions: gdi
 		Prerequisite: structures.gdi
 	ProvidesPrerequisite@nod:
 		Factions: nod
 		Prerequisite: structures.nod
-	SelectionDecorations:
-		VisualBounds: 144, 80, 0, -12
+	IsometricSelectable:
+		Height: 36
 
 PROC:
 	Inherits: ^Building
+	Inherits@SHAPE: ^4x3FactoryWithBibShape
 	Valued:
 		Cost: 2000
 	Tooltip:
 		Name: Tiberium Refinery
 	Buildable:
 		Queue: Building
-		BuildPaletteOrder: 50
+		BuildPaletteOrder: 30
 		Prerequisites: anypower, ~techlevel.low
 		Description: Processes raw Tiberium\ninto useable resources.
 	Building:
-		Footprint: xxx= xx== xxx=
+		Footprint: xxX+ xx++ xxX+
 		Dimensions: 4,3
-	Selectable:
-		Bounds: 134, 96, 0, -12
 	Health:
-		HP: 900
+		HP: 90000
 	RevealsShroud:
 		Range: 6c0
 		MaxHeightDelta: 3
 	TiberianSunRefinery:
-		DockAngle: 160
+		DockAngle: 640
 		DockOffset: 2,1
 		DiscardExcessResources: true
 	StoresResources:
-		PipColor: Green
-		PipCount: 10
 		Capacity: 2000
 	CustomSellValue:
 		Value: 600
 	FreeActor:
 		Actor: HARV
 		SpawnOffset: 2,1
-		Facing: 160
+		Facing: 640
 	WithIdleOverlay@REDLIGHTS:
+		RequiresCondition: !build-incomplete
 		Sequence: idle-redlights
 	WithIdleOverlay@BIB:
+		RequiresCondition: !build-incomplete
 		Sequence: bib
 	WithDockedOverlay@FLAME:
+		RequiresCondition: !build-incomplete
 		Sequence: flame
 		Palette: effect
 	WithDockingOverlay@UNLOAD:
+		RequiresCondition: !build-incomplete
 	Power:
 		Amount: -30
 	ProvidesPrerequisite@buildingname:
-	SelectionDecorations:
-		VisualBounds: 134, 122, 0, -18
 	RenderSprites:
 		Image: proc.gdi
 		FactionImages:
 			gdi: proc.gdi
 			nod: proc.nod
+	GrantConditionOnPlayerResources:
+		Condition: contains-tiberium
 	Explodes:
+		RequiresCondition: contains-tiberium
 		Weapon: TiberiumExplosion
+	WithResourceStoragePipsDecoration:
+		Position: BottomLeft
+		RequiresSelection: true
+		Margin: 8, 2
+		FullSequence: pip-green-building
+		EmptySequence: pip-empty-building
+		PipStride: 4, 2
+		PipCount: 25
+		Palette: pips
 
 GASILO:
 	Inherits: ^Building
+	Inherits@SHAPE: ^2x2Shape
 	Buildable:
 		Queue: Building
-		BuildPaletteOrder: 100
+		BuildPaletteOrder: 60
 		Prerequisites: proc, ~techlevel.low
 		Description: Stores excess Tiberium.
 	Valued:
@@ -124,11 +166,9 @@ GASILO:
 	Building:
 		Footprint: xx xx
 		Dimensions: 2, 2
-	Selectable:
-		Bounds: 80, 48, -5, 0
 	-GivesBuildableArea:
 	Health:
-		HP: 300
+		HP: 30000
 	Armor:
 		Type: Wood
 	RevealsShroud:
@@ -139,25 +179,36 @@ GASILO:
 		FactionImages:
 			gdi: gasilo.gdi
 			nod: gasilo.nod
+	WithResourceLevelOverlay@FILLSTAGE:
+		RequiresCondition: !build-incomplete
+		Sequence: stages
 	WithSpriteBody:
-	WithSiloAnimation:
-	WithIdleOverlay@UNDERLAY:
 		Sequence: idle-underlay
 	WithIdleOverlay@LIGHTS:
+		RequiresCondition: !build-incomplete
 		Sequence: idle-lights
 	StoresResources:
-		PipColor: Green
-		PipCount: 5
 		Capacity: 1500
 	Power:
 		Amount: -10
-	SelectionDecorations:
-		VisualBounds: 80, 48, -5, 0
+	GrantConditionOnPlayerResources:
+		Condition: contains-tiberium
 	Explodes:
+		RequiresCondition: contains-tiberium
 		Weapon: TiberiumExplosion
+	WithResourceStoragePipsDecoration:
+		Position: BottomLeft
+		RequiresSelection: true
+		Margin: 8, 2
+		FullSequence: pip-green-building
+		EmptySequence: pip-empty-building
+		PipStride: 4, 2
+		PipCount: 12
+		Palette: pips
 
 ANYPOWER:
 	AlwaysVisible:
+	Interactable:
 	Tooltip:
 		Name: Power Plant
 	Buildable:
@@ -165,6 +216,7 @@ ANYPOWER:
 
 BARRACKS:
 	AlwaysVisible:
+	Interactable:
 	Tooltip:
 		Name: Infantry Production
 	Buildable:
@@ -172,6 +224,7 @@ BARRACKS:
 
 FACTORY:
 	AlwaysVisible:
+	Interactable:
 	Tooltip:
 		Name: Vehicle Production
 	Buildable:
@@ -179,6 +232,7 @@ FACTORY:
 
 RADAR:
 	AlwaysVisible:
+	Interactable:
 	Tooltip:
 		Name: Radar
 	Buildable:
@@ -186,6 +240,7 @@ RADAR:
 
 TECH:
 	AlwaysVisible:
+	Interactable:
 	Tooltip:
 		Name: Tech Center
 	Buildable:

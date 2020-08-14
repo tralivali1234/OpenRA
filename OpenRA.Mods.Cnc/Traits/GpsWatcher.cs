@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -11,29 +11,33 @@
 
 using System.Collections.Generic;
 using System.Linq;
-using OpenRA.Effects;
-using OpenRA.Mods.Cnc.Effects;
 using OpenRA.Mods.Common.Traits;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Cnc.Traits
 {
 	[Desc("Required for `GpsPower`. Attach this to the player actor.")]
-	class GpsWatcherInfo : ITraitInfo
+	class GpsWatcherInfo : TraitInfo
 	{
-		public object Create(ActorInitializer init) { return new GpsWatcher(init.Self.Owner); }
+		public override object Create(ActorInitializer init) { return new GpsWatcher(init.Self.Owner); }
 	}
 
 	interface IOnGpsRefreshed { void OnGpsRefresh(Actor self, Player player); }
 
-	class GpsWatcher : ISync, IFogVisibilityModifier
+	class GpsWatcher : ISync, IPreventsShroudReset
 	{
-		[Sync] public bool Launched { get; private set; }
-		[Sync] public bool GrantedAllies { get; private set; }
-		[Sync] public bool Granted { get; private set; }
+		[Sync]
+		public bool Launched { get; private set; }
+
+		[Sync]
+		public bool GrantedAllies { get; private set; }
+
+		[Sync]
+		public bool Granted { get; private set; }
 
 		// Whether this watcher has explored the terrain (by becoming Launched, or an ally becoming Launched)
-		[Sync] bool explored;
+		[Sync]
+		bool explored;
 
 		readonly Player owner;
 
@@ -92,18 +96,9 @@ namespace OpenRA.Mods.Cnc.Traits
 					tp.Trait.OnGpsRefresh(tp.Actor, owner);
 		}
 
-		public bool HasFogVisibility()
+		bool IPreventsShroudReset.PreventShroudReset(Actor self)
 		{
 			return Granted || GrantedAllies;
-		}
-
-		public bool IsVisible(Actor actor)
-		{
-			var gpsDot = actor.TraitOrDefault<GpsDot>();
-			if (gpsDot == null)
-				return false;
-
-			return gpsDot.IsDotVisible(owner);
 		}
 
 		public void RegisterForOnGpsRefreshed(Actor actor, IOnGpsRefreshed toBeNotified)

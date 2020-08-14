@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,47 +10,42 @@
 #endregion
 
 using System.Collections.Generic;
-using System.Drawing;
 using OpenRA.Graphics;
 using OpenRA.Mods.Common.Graphics;
+using OpenRA.Primitives;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("Limits the zone where buildings can be constructed to a radius around this actor.")]
-	public class BaseProviderInfo : ITraitInfo
+	public class BaseProviderInfo : PausableConditionalTraitInfo
 	{
 		public readonly WDist Range = WDist.FromCells(10);
 		public readonly int Cooldown = 0;
 		public readonly int InitialDelay = 0;
 
-		public object Create(ActorInitializer init) { return new BaseProvider(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new BaseProvider(init.Self, this); }
 	}
 
-	public class BaseProvider : ITick, INotifyCreated, IRenderAboveShroudWhenSelected, ISelectionBar
+	public class BaseProvider : PausableConditionalTrait<BaseProviderInfo>, ITick, IRenderAnnotationsWhenSelected, ISelectionBar
 	{
-		public readonly BaseProviderInfo Info;
 		readonly DeveloperMode devMode;
 		readonly Actor self;
-
-		Building building;
+		readonly bool allyBuildEnabled;
+		readonly bool buildRadiusEnabled;
 
 		int total;
 		int progress;
-		bool allyBuildEnabled;
 
 		public BaseProvider(Actor self, BaseProviderInfo info)
+			: base(info)
 		{
-			Info = info;
 			this.self = self;
 			devMode = self.Owner.PlayerActor.Trait<DeveloperMode>();
 			progress = total = info.InitialDelay;
-			allyBuildEnabled = self.World.WorldActor.Trait<MapBuildRadius>().AllyBuildRadiusEnabled;
-		}
-
-		void INotifyCreated.Created(Actor self)
-		{
-			building = self.TraitOrDefault<Building>();
+			var mapBuildRadius = self.World.WorldActor.TraitOrDefault<MapBuildRadius>();
+			allyBuildEnabled = mapBuildRadius != null && mapBuildRadius.AllyBuildRadiusEnabled;
+			buildRadiusEnabled = mapBuildRadius != null && mapBuildRadius.BuildRadiusEnabled;
 		}
 
 		void ITick.Tick(Actor self)
@@ -66,7 +61,7 @@ namespace OpenRA.Mods.Common.Traits
 
 		public bool Ready()
 		{
-			if (building != null && building.Locked)
+			if (IsTraitDisabled || IsTraitPaused)
 				return false;
 
 			return devMode.FastBuild || progress == 0;
@@ -74,16 +69,19 @@ namespace OpenRA.Mods.Common.Traits
 
 		bool ValidRenderPlayer()
 		{
-			return self.Owner == self.World.RenderPlayer || (allyBuildEnabled && self.Owner.IsAlliedWith(self.World.RenderPlayer));
+			return buildRadiusEnabled && (self.Owner == self.World.RenderPlayer || (allyBuildEnabled && self.Owner.IsAlliedWith(self.World.RenderPlayer)));
 		}
 
 		public IEnumerable<IRenderable> RangeCircleRenderables(WorldRenderer wr)
 		{
+			if (IsTraitDisabled)
+				yield break;
+
 			// Visible to player and allies
 			if (!ValidRenderPlayer())
 				yield break;
 
-			yield return new RangeCircleRenderable(
+			yield return new RangeCircleAnnotationRenderable(
 				self.CenterPosition,
 				Info.Range,
 				0,
@@ -91,13 +89,18 @@ namespace OpenRA.Mods.Common.Traits
 				Color.FromArgb(96, Color.Black));
 		}
 
-		IEnumerable<IRenderable> IRenderAboveShroudWhenSelected.RenderAboveShroud(Actor self, WorldRenderer wr)
+		IEnumerable<IRenderable> IRenderAnnotationsWhenSelected.RenderAnnotations(Actor self, WorldRenderer wr)
 		{
 			return RangeCircleRenderables(wr);
 		}
 
+		bool IRenderAnnotationsWhenSelected.SpatiallyPartitionable { get { return false; } }
+
 		float ISelectionBar.GetValue()
 		{
+			if (IsTraitDisabled)
+				return 0f;
+
 			// Visible to player and allies
 			if (!ValidRenderPlayer())
 				return 0f;

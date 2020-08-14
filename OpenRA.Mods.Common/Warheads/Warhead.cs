@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -9,41 +9,44 @@
  */
 #endregion
 
-using System;
-using System.Collections.Generic;
-using System.Drawing;
+using OpenRA.GameRules;
+using OpenRA.Primitives;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Warheads
 {
-	[Flags]
 	public enum ImpactType
 	{
-		None = 0,
-		Ground = 1,
-		GroundHit = 2,
-		Water = 4,
-		WaterHit = 8,
-		Air = 16,
-		AirHit = 32,
-		TargetTerrain = 64,
-		TargetHit = 128
+		None,
+		Ground,
+		Air,
+		TargetHit
+	}
+
+	public enum ImpactTargetType
+	{
+		NoActor,
+		ValidActor,
+		InvalidActor
 	}
 
 	[Desc("Base warhead class. This can be used to derive other warheads from.")]
 	public abstract class Warhead : IWarhead
 	{
 		[Desc("What types of targets are affected.")]
-		public readonly HashSet<string> ValidTargets = new HashSet<string> { "Ground", "Water" };
+		public readonly BitSet<TargetableType> ValidTargets = new BitSet<TargetableType>("Ground", "Water");
 
 		[Desc("What types of targets are unaffected.", "Overrules ValidTargets.")]
-		public readonly HashSet<string> InvalidTargets = new HashSet<string>();
+		public readonly BitSet<TargetableType> InvalidTargets;
 
 		[Desc("What diplomatic stances are affected.")]
 		public readonly Stance ValidStances = Stance.Ally | Stance.Neutral | Stance.Enemy;
 
 		[Desc("Can this warhead affect the actor that fired it.")]
 		public readonly bool AffectsParent = false;
+
+		[Desc("If impact is above this altitude, warheads that would affect terrain ignore terrain target types (and either do nothing or perform their own checks).")]
+		public readonly WDist AirThreshold = new WDist(128);
 
 		[Desc("Delay in ticks before applying the warhead effect.", "0 = instant (old model).")]
 		public readonly int Delay = 0;
@@ -53,13 +56,13 @@ namespace OpenRA.Mods.Common.Warheads
 		[Desc("The color used for this warhead's visualization in the world's `WarheadDebugOverlay` trait.")]
 		public readonly Color DebugOverlayColor = Color.Red;
 
-		public bool IsValidTarget(IEnumerable<string> targetTypes)
+		protected bool IsValidTarget(BitSet<TargetableType> targetTypes)
 		{
 			return ValidTargets.Overlaps(targetTypes) && !InvalidTargets.Overlaps(targetTypes);
 		}
 
 		/// <summary>Applies the warhead's effect against the target.</summary>
-		public abstract void DoImpact(Target target, Actor firedBy, IEnumerable<int> damageModifiers);
+		public abstract void DoImpact(Target target, WarheadArgs args);
 
 		/// <summary>Checks if the warhead is valid against (can do something to) the actor.</summary>
 		public virtual bool IsValidAgainst(Actor victim, Actor firedBy)
@@ -81,6 +84,9 @@ namespace OpenRA.Mods.Common.Warheads
 		/// <summary>Checks if the warhead is valid against (can do something to) the frozen actor.</summary>
 		public bool IsValidAgainst(FrozenActor victim, Actor firedBy)
 		{
+			if (!victim.IsValid)
+				return false;
+
 			// AffectsParent checks do not make sense for FrozenActors, so skip to stance checks
 			var stance = firedBy.Owner.Stances[victim.Owner];
 			if (!ValidStances.HasStance(stance))

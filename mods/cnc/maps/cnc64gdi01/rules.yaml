@@ -1,6 +1,6 @@
 World:
 	LuaScript:
-		Scripts: cnc64gdi01.lua
+		Scripts: campaign-global.lua, cnc64gdi01.lua
 	MusicPlaylist:
 		StartingMusic: aoi
 	MissionData:
@@ -41,8 +41,7 @@ OLDLST:
 	Inherits: LST
 	-WithRoof:
 	-Selectable:
-	SelectionDecorations:
-		RenderSelectionBars: False
 	RejectsOrders:
 	Cargo:
 		Types: disabled
+	Interactable:

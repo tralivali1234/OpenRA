@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -22,6 +22,9 @@ namespace OpenRA
 	/// </summary>
 	public class ActorInfo
 	{
+		public const string AbstractActorPrefix = "^";
+		public const char TraitInstanceSeparator = '@';
+
 		/// <summary>
 		/// The actor name can be anything, but the sprites used in the Render*: traits default to this one.
 		/// If you add an ^ in front of the name, the engine will recognize this as a collection of traits
@@ -30,7 +33,7 @@ namespace OpenRA
 		/// </summary>
 		public readonly string Name;
 		readonly TypeDictionary traits = new TypeDictionary();
-		List<ITraitInfo> constructOrderCache = null;
+		List<TraitInfo> constructOrderCache = null;
 
 		public ActorInfo(ObjectCreator creator, string name, MiniYaml node)
 		{
@@ -38,19 +41,23 @@ namespace OpenRA
 			{
 				Name = name;
 
-				var abstractActorType = name.StartsWith("^");
 				foreach (var t in node.Nodes)
 				{
 					try
 					{
-						traits.Add(LoadTraitInfo(creator, t.Key.Split('@')[0], t.Value));
+						// HACK: The linter does not want to crash when a trait doesn't exist but only print an error instead
+						// LoadTraitInfo will only return null to signal us to abort here if the linter is running
+						var trait = LoadTraitInfo(creator, t.Key, t.Value);
+						if (trait != null)
+							traits.Add(trait);
 					}
 					catch (FieldLoader.MissingFieldsException e)
 					{
-						if (!abstractActorType)
-							throw new YamlException(e.Message);
+						throw new YamlException(e.Message);
 					}
 				}
+
+				traits.TrimExcess();
 			}
 			catch (YamlException e)
 			{
@@ -58,21 +65,32 @@ namespace OpenRA
 			}
 		}
 
-		public ActorInfo(string name, params ITraitInfo[] traitInfos)
+		public ActorInfo(string name, params TraitInfo[] traitInfos)
 		{
 			Name = name;
 			foreach (var t in traitInfos)
 				traits.Add(t);
+			traits.TrimExcess();
 		}
 
-		static ITraitInfo LoadTraitInfo(ObjectCreator creator, string traitName, MiniYaml my)
+		static TraitInfo LoadTraitInfo(ObjectCreator creator, string traitName, MiniYaml my)
 		{
 			if (!string.IsNullOrEmpty(my.Value))
 				throw new YamlException("Junk value `{0}` on trait node {1}"
 				.F(my.Value, traitName));
-			var info = creator.CreateObject<ITraitInfo>(traitName + "Info");
+
+			// HACK: The linter does not want to crash when a trait doesn't exist but only print an error instead
+			// ObjectCreator will only return null to signal us to abort here if the linter is running
+			var traitInstance = traitName.Split(TraitInstanceSeparator);
+			var info = creator.CreateObject<TraitInfo>(traitInstance[0] + "Info");
+			if (info == null)
+				return null;
+
 			try
 			{
+				if (traitInstance.Length > 1)
+					info.GetType().GetField("InstanceName").SetValue(info, traitInstance[1]);
+
 				FieldLoader.Load(info, my);
 			}
 			catch (FieldLoader.MissingFieldsException e)
@@ -84,12 +102,12 @@ namespace OpenRA
 			return info;
 		}
 
-		public IEnumerable<ITraitInfo> TraitsInConstructOrder()
+		public IEnumerable<TraitInfo> TraitsInConstructOrder()
 		{
 			if (constructOrderCache != null)
 				return constructOrderCache;
 
-			var source = traits.WithInterface<ITraitInfo>().Select(i => new
+			var source = traits.WithInterface<TraitInfo>().Select(i => new
 			{
 				Trait = i,
 				Type = i.GetType(),
@@ -135,7 +153,7 @@ namespace OpenRA
 			return constructOrderCache;
 		}
 
-		public static IEnumerable<Type> PrerequisitesOf(ITraitInfo info)
+		public static IEnumerable<Type> PrerequisitesOf(TraitInfo info)
 		{
 			return info
 				.GetType()
@@ -144,23 +162,18 @@ namespace OpenRA
 				.Select(t => t.GetGenericArguments()[0]);
 		}
 
-		public IEnumerable<Pair<string, Type>> GetInitKeys()
-		{
-			var inits = traits.WithInterface<ITraitInfo>().SelectMany(
-				t => t.GetType().GetInterfaces()
-					.Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(UsesInit<>))
-					.Select(i => i.GetGenericArguments()[0])).ToList();
-
-			inits.Add(typeof(OwnerInit));		/* not exposed by a trait; this is used by the Actor itself */
-
-			return inits.Select(
-				i => Pair.New(
-					i.Name.Replace("Init", ""), i));
-		}
-
 		public bool HasTraitInfo<T>() where T : ITraitInfoInterface { return traits.Contains<T>(); }
 		public T TraitInfo<T>() where T : ITraitInfoInterface { return traits.Get<T>(); }
 		public T TraitInfoOrDefault<T>() where T : ITraitInfoInterface { return traits.GetOrDefault<T>(); }
 		public IEnumerable<T> TraitInfos<T>() where T : ITraitInfoInterface { return traits.WithInterface<T>(); }
+
+		public BitSet<TargetableType> GetAllTargetTypes()
+		{
+			// PERF: Avoid LINQ.
+			var targetTypes = default(BitSet<TargetableType>);
+			foreach (var targetable in TraitInfos<ITargetableInfo>())
+				targetTypes = targetTypes.Union(targetable.GetTargetTypes());
+			return targetTypes;
+		}
 	}
 }

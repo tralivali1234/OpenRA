@@ -9,7 +9,7 @@ WEEDGUY:
 	Mobile:
 		Speed: 42
 	Health:
-		HP: 130
+		HP: 13000
 	Crushable:
 		CrushSound: squishy2.aud
 	Armament:
@@ -29,6 +29,8 @@ UMAGON:
 	Inherits: ^Soldier
 	Inherits@2: ^HealsOnTiberium
 	Inherits@EXPERIENCE: ^GainsExperience
+	Inherits@EXPHOSPITAL: ^InfantryExperienceHospitalOverrides
+	Inherits@AUTOTARGET: ^AutoTargetGroundAssaultMove
 	Valued:
 		Cost: 400
 	Tooltip:
@@ -38,7 +40,7 @@ UMAGON:
 	Mobile:
 		Speed: 71
 	Health:
-		HP: 150
+		HP: 15000
 	Passenger:
 	RevealsShroud:
 		Range: 7c0
@@ -60,7 +62,7 @@ CHAMSPY:
 	Voiced:
 		VoiceSet: Spy
 	Health:
-		HP: 120
+		HP: 12000
 	Mobile:
 		Speed: 85
 	RevealsShroud:
@@ -69,15 +71,15 @@ CHAMSPY:
 	Disguise:
 		DisguisedCondition: disguise
 	WithDecoration@disguise:
+		RequiresCondition: disguise
+		Position: TopRight
+		Margin: 6, 10
 		Image: pips
 		Sequence: pip-disguise
 		Palette: pips
-		ReferencePoint: Top, Right
-		ZOffset: 256
-		RequiresCondition: disguise
 	Infiltrates:
 		Types: SpyInfiltrate
-	-AutoTarget:
+		Notification: BuildingInfiltrated
 	-WithInfantryBody:
 	WithDisguisingInfantryBody:
 		IdleSequences: idle1,idle2
@@ -86,6 +88,8 @@ MUTANT:
 	Inherits: ^Soldier
 	Inherits@2: ^HealsOnTiberium
 	Inherits@EXPERIENCE: ^GainsExperience
+	Inherits@EXPHOSPITAL: ^InfantryExperienceHospitalOverrides
+	Inherits@AUTOTARGET: ^AutoTargetGroundAssaultMove
 	Valued:
 		Cost: 100
 	Tooltip:
@@ -93,7 +97,7 @@ MUTANT:
 	Voiced:
 		VoiceSet: Mutant
 	Health:
-		HP: 50
+		HP: 5000
 	Mobile:
 		Speed: 56
 	RevealsShroud:
@@ -111,6 +115,8 @@ MWMN:
 	Inherits: ^Soldier
 	Inherits@2: ^HealsOnTiberium
 	Inherits@EXPERIENCE: ^GainsExperience
+	Inherits@EXPHOSPITAL: ^InfantryExperienceHospitalOverrides
+	Inherits@AUTOTARGET: ^AutoTargetGroundAssaultMove
 	Valued:
 		Cost: 100
 	Tooltip:
@@ -118,7 +124,7 @@ MWMN:
 	Voiced:
 		VoiceSet: CivilianFemale
 	Health:
-		HP: 50
+		HP: 5000
 	Mobile:
 		Speed: 56
 	RevealsShroud:
@@ -136,6 +142,8 @@ MUTANT3:
 	Inherits: ^Soldier
 	Inherits@2: ^HealsOnTiberium
 	Inherits@EXPERIENCE: ^GainsExperience
+	Inherits@EXPHOSPITAL: ^InfantryExperienceHospitalOverrides
+	Inherits@AUTOTARGET: ^AutoTargetGroundAssaultMove
 	Valued:
 		Cost: 100
 	Tooltip:
@@ -143,7 +151,7 @@ MUTANT3:
 	Voiced:
 		VoiceSet: Mutant
 	Health:
-		HP: 50
+		HP: 5000
 	Mobile:
 		Speed: 56
 	RevealsShroud:
@@ -167,12 +175,11 @@ TRATOS:
 	Voiced:
 		VoiceSet: Tratos
 	Health:
-		HP: 200
+		HP: 20000
 	Mobile:
 		Speed: 71
 	RevealsShroud:
 		Range: 4c0
-	-AutoTarget:
 	WithInfantryBody:
 		DefaultAttackSequence:
 
@@ -185,12 +192,11 @@ OXANNA:
 	Voiced:
 		VoiceSet: Oxanna
 	Health:
-		HP: 50
+		HP: 5000
 	Mobile:
 		Speed: 56
 	RevealsShroud:
 		Range: 4c0
-	-AutoTarget:
 	WithInfantryBody:
 		DefaultAttackSequence: attack
 
@@ -203,33 +209,46 @@ SLAV:
 	Voiced:
 		VoiceSet: Slavick
 	Health:
-		HP: 300
+		HP: 30000
 	Mobile:
 		Speed: 56
 	RevealsShroud:
 		Range: 4c0
-	-AutoTarget:
 	WithInfantryBody:
 		DefaultAttackSequence: attack
 
 CIV1:
 	Inherits: ^CivilianInfantry
+	Inherits@AUTOTARGET: ^AutoTargetGroundAssaultMove
 	WithInfantryBody:
 		DefaultAttackSequence: attack
 	Armament:
 		Weapon: Pistola
 	AttackFrontal:
 		Voice: Attack
+	Voiced:
+		VoiceSet: Civilian1
 
 CIV2:
 	Inherits: ^CivilianInfantry
-	-AutoTarget:
+	Voiced:
+		VoiceSet: Civilian2
 
 CIV3:
 	Inherits: ^CivilianInfantry
+	Voiced:
+		VoiceSet: Civilian3
+
+CTECH:
+	Inherits: CIV3
+	Inherits@AUTOTARGET: ^AutoTargetGroundAssaultMove
+	RenderSprites:
+		Image: civ3
 	WithInfantryBody:
 		DefaultAttackSequence: attack
 	Armament:
 		Weapon: Pistola
 	AttackFrontal:
 		Voice: Attack
+	Voiced:
+		VoiceSet: CivilianTechnician

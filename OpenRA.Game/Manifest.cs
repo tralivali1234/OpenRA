@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -31,39 +31,54 @@ namespace OpenRA
 		}
 	}
 
+	public sealed class ModelSequenceFormat : IGlobalModData
+	{
+		public readonly string Type;
+		public readonly IReadOnlyDictionary<string, MiniYaml> Metadata;
+		public ModelSequenceFormat(MiniYaml yaml)
+		{
+			Type = yaml.Value;
+			Metadata = new ReadOnlyDictionary<string, MiniYaml>(yaml.ToDictionary());
+		}
+	}
+
 	public class ModMetadata
 	{
 		public string Title;
 		public string Version;
+		public string Website;
+		public string WebIcon32;
 		public bool Hidden;
 	}
 
 	/// <summary> Describes what is to be loaded in order to run a mod. </summary>
-	public class Manifest
+	public class Manifest : IDisposable
 	{
 		public readonly string Id;
 		public readonly IReadOnlyPackage Package;
 		public readonly ModMetadata Metadata;
 		public readonly string[]
 			Rules, ServerTraits,
-			Sequences, VoxelSequences, Cursors, Chrome, Assemblies, ChromeLayout,
+			Sequences, ModelSequences, Cursors, Chrome, Assemblies, ChromeLayout,
 			Weapons, Voices, Notifications, Music, Translations, TileSets,
-			ChromeMetrics, MapCompatibility, Missions;
+			ChromeMetrics, MapCompatibility, Missions, Hotkeys;
 
 		public readonly IReadOnlyDictionary<string, string> Packages;
 		public readonly IReadOnlyDictionary<string, string> MapFolders;
 		public readonly MiniYaml LoadScreen;
-		public readonly Dictionary<string, Pair<string, int>> Fonts;
 
 		public readonly string[] SoundFormats = { };
 		public readonly string[] SpriteFormats = { };
 		public readonly string[] PackageFormats = { };
 
-		readonly string[] reservedModuleNames = { "Metadata", "Folders", "MapFolders", "Packages", "Rules",
-			"Sequences", "VoxelSequences", "Cursors", "Chrome", "Assemblies", "ChromeLayout", "Weapons",
-			"Voices", "Notifications", "Music", "Translations", "TileSets", "ChromeMetrics", "Missions",
-			"ServerTraits", "LoadScreen", "Fonts", "SupportsMapsFrom", "SoundFormats", "SpriteFormats",
-			"RequiresMods", "PackageFormats" };
+		readonly string[] reservedModuleNames =
+		{
+			"Metadata", "Folders", "MapFolders", "Packages", "Rules",
+			"Sequences", "ModelSequences", "Cursors", "Chrome", "Assemblies", "ChromeLayout", "Weapons",
+			"Voices", "Notifications", "Music", "Translations", "TileSets", "ChromeMetrics", "Missions", "Hotkeys",
+			"ServerTraits", "LoadScreen", "SupportsMapsFrom", "SoundFormats", "SpriteFormats",
+			"RequiresMods", "PackageFormats"
+		};
 
 		readonly TypeDictionary modules = new TypeDictionary();
 		readonly Dictionary<string, MiniYaml> yaml;
@@ -87,7 +102,7 @@ namespace OpenRA
 
 			Rules = YamlList(yaml, "Rules");
 			Sequences = YamlList(yaml, "Sequences");
-			VoxelSequences = YamlList(yaml, "VoxelSequences");
+			ModelSequences = YamlList(yaml, "ModelSequences");
 			Cursors = YamlList(yaml, "Cursors");
 			Chrome = YamlList(yaml, "Chrome");
 			Assemblies = YamlList(yaml, "Assemblies");
@@ -100,17 +115,12 @@ namespace OpenRA
 			TileSets = YamlList(yaml, "TileSets");
 			ChromeMetrics = YamlList(yaml, "ChromeMetrics");
 			Missions = YamlList(yaml, "Missions");
+			Hotkeys = YamlList(yaml, "Hotkeys");
 
 			ServerTraits = YamlList(yaml, "ServerTraits");
 
 			if (!yaml.TryGetValue("LoadScreen", out LoadScreen))
 				throw new InvalidDataException("`LoadScreen` section is not defined.");
-
-			Fonts = yaml["Fonts"].ToDictionary(my =>
-			{
-				var nd = my.ToDictionary();
-				return Pair.New(nd["Font"].Value, Exts.ParseIntegerInvariant(nd["Size"].Value));
-			});
 
 			// Allow inherited mods to import parent maps.
 			var compat = new List<string> { Id };
@@ -230,6 +240,16 @@ namespace OpenRA
 			}
 
 			return (T)module;
+		}
+
+		public void Dispose()
+		{
+			foreach (var module in modules)
+			{
+				var disposableModule = module as IDisposable;
+				if (disposableModule != null)
+					disposableModule.Dispose();
+			}
 		}
 	}
 }

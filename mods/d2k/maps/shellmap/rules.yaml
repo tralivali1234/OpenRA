@@ -8,11 +8,12 @@ World:
 	-MPStartLocations:
 	ResourceType@Spice:
 		ValuePerUnit: 0
-	WormManager:
+	ActorSpawnManager:
 		Minimum: 1
 		Maximum: 3
 	MusicPlaylist:
 		BackgroundMusic: options
+		AllowMuteBackgroundMusic: true
 		DisableWorldSounds: true
 	LuaScript:
 		Scripts: d2k-shellmap.lua
@@ -61,6 +62,12 @@ grenadier:
 		Cost: 0
 
 sardaukar:
+	Buildable:
+		Prerequisites: ~player.corrino
+	Valued:
+		Cost: 0
+
+mpsardaukar:
 	Valued:
 		Cost: 0
 

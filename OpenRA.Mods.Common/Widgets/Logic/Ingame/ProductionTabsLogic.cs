@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2017 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,6 +10,7 @@
 #endregion
 
 using System;
+using System.Linq;
 using OpenRA.Widgets;
 
 namespace OpenRA.Mods.Common.Widgets.Logic
@@ -34,20 +35,10 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 				tabs.PickUpCompletedBuilding();
 			};
 
-			Func<ButtonWidget, Hotkey> getKey = _ => Hotkey.Invalid;
-			if (!string.IsNullOrEmpty(button.HotkeyName))
-			{
-				var ks = Game.Settings.Keys;
-				var field = ks.GetType().GetField(button.HotkeyName);
-				if (field != null)
-					getKey = _ => (Hotkey)field.GetValue(ks);
-			}
-
-			button.IsDisabled = () => tabs.Groups[button.ProductionGroup].Tabs.Count == 0;
+			button.IsDisabled = () => !tabs.Groups[button.ProductionGroup].Tabs.Any(t => t.Queue.BuildableItems().Any());
 			button.OnMouseUp = mi => selectTab(mi.Modifiers.HasModifier(Modifiers.Shift));
 			button.OnKeyPress = e => selectTab(e.Modifiers.HasModifier(Modifiers.Shift));
 			button.IsHighlighted = () => tabs.QueueGroup == button.ProductionGroup;
-			button.GetKey = getKey;
 
 			var chromeName = button.ProductionGroup.ToLowerInvariant();
 			var icon = button.Get<ImageWidget>("ICON");
